@@ -1,6 +1,6 @@
 {
   "name": "MuraDeck",
-  "version": "2.1.4",
+  "version": "2.2.0-test1",
   "description": "Adaptive mura correction, gamma correction, and dithering to fix mura effect ONLY FOR defective Samsung Panel for Steam Deck OLED.",
   "type": "module",
   "scripts": {
