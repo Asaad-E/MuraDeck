@@ -9,7 +9,7 @@
   by `_migration()` on first load / reinstall.
 - **FX patching** (`_patch_fx`): mura shaders are plain-text `.fx` ReShade files. The plugin does NOT template
   them — it line-scans for known `uniform float ...` blocks (`CAS_Enabled`, `Sharpness`, `Pixelate_Enabled`,
-  `Pixelate_BlockSize`, `MuraShadowGuard`, `MuraMapScale`, `MuraFadeNearWhite`, `Intensity`, `RGB_Lift`,
+  `Pixelate_BlockSize`, `MuraResponse`, `MuraMapScale`, `MuraFadeNearWhite`, `Intensity`, `RGB_Lift`,
   `RGB_Gamma`) and rewrites each block's default value in place. See [DECISIONS.md](DECISIONS.md) for why.
   The scan keys off the exact declaration text and stops at the first line containing `>`, so a `ui_tooltip`
   must never contain one. `scratchpad/patch_harness.py`-style stubbing of `decky`/`settings` lets this be
@@ -26,9 +26,9 @@
 - **Brightness adaptation** (`brightness_state`, called from frontend's brightness listener): looks up the
   current profile's threshold table (`BRIGHTNESS_TABLE_*`) and re-patches/re-applies the effect when the
   bracket changes.
-- **Shadow guard** (`set_mura_shadow_guard`/`get_mura_shadow_guard`, setting `mura_shadow_guard`): global, not
-  per-app or per-display — how far up the tone range mura correction stays suppressed. See
-  [DECISIONS.md](DECISIONS.md) for the shape of the curve and why it exists.
+- **Mura response** (`set_mura_response`/`get_mura_response`, setting `mura_response`): global, not per-app or
+  per-display — how strongly the correction follows each pixel's own level instead of being a flat offset. See
+  [DECISIONS.md](DECISIONS.md) for why.
 - **Per-app state**: CAS enabled/sharpness, Pixel Art mode/block size, and mura profile can be global or
   per-`appid` (`*_perapp_enabled` flag + `*_app_{appid}_{internal,external}` keyed settings, same shape for all
   three). `on_focus_change` / `on_game_state_update` (driven by frontend Steam event listeners) restore per-app

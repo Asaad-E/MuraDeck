@@ -28,18 +28,22 @@
   dedicated shader; anything else falls back to SDR rather than guessing. Each HDR colorspace needs its own
   fine-tuned mura curve — applying the wrong one is worse than not correcting at all.
 
-- **Mura is gated out of the shadows by `MuraShadowGuard`, and clamped to per-pixel headroom.** The map is
-  applied as a fixed `±MuraMapScale/2` offset, so its size *relative to the pixel* explodes as the pixel darkens
-  — at luma 0.02 it was a 347% perturbation. The existing `pow(luma, MuraFadeNearBlack)` fade was supposed to
-  prevent that, but with the exponent tuned to ~0.02 it evaluates to ~0.94 at luma 0.05, i.e. it never engaged;
-  the same is true of HDR10PQ's `pow(luma, 0.0)`. Because only red and green have maps (galileo ships no blue
-  map, so blue is left untouched by design), the leftover perturbation is *chromatic*, which is why it read as
-  coloured noise on dark greys and blues specifically. Two fixes, both deliberately shaped to leave the author's
-  mid/highlight calibration untouched: a `smoothstep(MuraBlackCutoff, lerp(0.04, 0.40, guard), luma)` term that
-  reaches 1.0 by luma ~0.25 (so correction above that is bit-identical to before), and a clamp of the offset to
-  `min(color, 1-color)` so the negative half of the map can't clip at zero and leave only its positive half —
-  that one-sided survival was itself a source of the raised, blotchy black this plugin exists to avoid.
-  Exposed as one global slider rather than a per-game one: it's a property of the panel, not of the content.
+- **Mura correction scales with the pixel's own level, rather than being gated out of the
+  shadows.** The map is applied as a fixed `±MuraMapScale/2` offset, so its size *relative to
+  the pixel* explodes as the pixel darkens — at luma 0.02 it was a 347% perturbation, and
+  since only red and green have maps (galileo ships no blue one, so blue is untouched by
+  design) the leftover was *chromatic*, which is why it read as coloured noise on dark greys
+  and blues specifically. The `pow(luma, MuraFadeNearBlack)` fade meant to prevent this
+  evaluated to ~0.94 at luma 0.05, i.e. it never engaged. First fix was a smoothstep gate;
+  this replaces it with `lerp(1.0, saturate(luma / 0.5), MuraResponse)`, which is how demura
+  actually works — industry measures the panel at several grey levels because a pixel's
+  deviation tracks its drive level, and scaling by level is the one-map approximation of
+  that. Measured against a mura-free reference it beats the gate in every tone band (2.14 vs
+  2.62 in the mids) and needs no hand-picked threshold. The offset is still clamped to
+  `min(color, 1-color)` so the map's negative half cannot clip at zero and leave only its
+  positive half, which is itself a source of raised, blotchy black. `MuraResponse` is exposed
+  because a real panel mixes gain and offset error and only the user's eyes can settle the
+  blend; 0 restores the flat-offset behaviour.
 
 - **Sharpening is RCAS (FSR 1.0's second pass), not CAS.** Position in the pipeline decides
   this: gamescope has already scaled the frame by the time reshade sees it, and RCAS is the
