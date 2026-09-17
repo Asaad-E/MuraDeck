@@ -69,9 +69,10 @@ stage there; the filename is historical, it runs RCAS like the rest). `ReShade.f
 HLSL/ReShade FX source, not TS/Python — editing them requires understanding ReShade's `uniform` annotation
 syntax, since `_patch_fx` depends on exact `uniform float ...` declaration text matching.
 
-The three profile shaders share a `SamplePixelated`/`SampleBlockAverage` helper pair: when `Pixelate_Enabled`
-is on, the backbuffer is read through a box-supersampled (4 taps), block-quantized grid instead of a raw
-per-pixel `tex2D` — this is the entry point for CAS (`ApplyCAS`), grain (via `GetGrainCoord` for a
-block-coherent noise seed), and everything downstream. Mura correction's own `mura_uv` sampling is untouched by
-this — it always reads at the true per-pixel coordinate, since it's a physical panel calibration, not part of
-the game's rendered image.
+The three profile shaders share `FetchTexel`/`SampleBlock`: when `Pixelate_Enabled` is on, every read goes
+through the block grid — one texel from the block's centre, snapped to a texel centre so bilinear filtering
+cannot blend in the neighbour — instead of a raw per-pixel `tex2D`. `SampleOffset` routes both RCAS's centre
+tap and its four neighbours through it, deliberately on the same estimator. Grain follows the same grid via
+`GetGrainCoord`, so its noise stays coherent per block. Mura correction's own `mura_uv` sampling is untouched
+by all of this — it always reads at the true per-pixel coordinate, since it's a physical panel calibration,
+not part of the game's rendered image.

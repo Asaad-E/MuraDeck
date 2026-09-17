@@ -91,14 +91,20 @@
   so setting the filter through a different code path hits the identical upstream bug. Given that, "Pixel Art
   mode" (`Pixelate_Enabled`/`Pixelate_BlockSize` in the three profile `.fx` files, backend methods
   `set_pixelate`/`set_pixelate_block_size` etc. in `main.py`) instead re-quantizes the already-linear-scaled
-  backbuffer into user-sized blocks, box-averaged over 9 texels to avoid moire — a deliberate stylized
-  approximation, safe because it never touches the system scaler (stays on LINEAR, the only filter confirmed
-  safe with reshade). Every tap snaps to a texel centre (`FetchTexel`): sampling at fractions of a block lets
-  bilinear filtering blend in the neighbouring block, which made small block sizes come out *blurrier* than no
-  pixelation at all. Block size is fractional (step 0.25) because upscale factors usually are — a game blown up
-  1.6x needs 1.6, and forcing it to 2 beats against the game's real pixel grid. CAS's neighborhood sampling (`SampleOffset`) is made block-aware so CAS-with-pixelate
-  sharpens *between* blocks instead of being a no-op inside one; grain's noise seed is snapped to the same block
-  grid so dithering doesn't reintroduce per-real-pixel noise into an otherwise clean block. Mura correction
+  backbuffer into user-sized blocks — a deliberate stylized approximation, safe because it never touches the
+  system scaler (stays on LINEAR, the only filter confirmed safe with reshade). Each block takes one texel from
+  its centre, snapped to a texel centre (`FetchTexel`), because sampling anywhere else lets bilinear filtering
+  blend in the neighbouring block — which made small block sizes come out *blurrier* than no pixelation at all.
+  An earlier version box-averaged nine taps instead; those taps snapped to texel centres after being placed at
+  1/6, 1/2 and 5/6 of the block, which put the sampled centroid off the block's true centre by up to half a
+  texel, by a different amount at each block size, so the picture shifted as the slider moved — and measured
+  *softer* than a single centre tap (0.0062 against 0.0095 edge energy at block 2.25), i.e. the averaging was
+  costing the mode the crispness it exists for. Block size is fractional (step 0.25) because upscale factors
+  usually are — a game blown up 1.6x needs 1.6, and forcing it to 2 beats against the game's real pixel grid.
+  `SampleOffset` is block-aware so RCAS sharpens *between* blocks rather than inside one, and routes centre and
+  neighbours through the same estimator: when the centre was an average and the neighbours single taps, the two
+  disagreed by up to half the range and RCAS read that as image content. Grain's noise seed is snapped to the
+  same grid so dithering doesn't reintroduce per-real-pixel noise into an otherwise clean block. Mura correction
   itself intentionally still samples at the real per-pixel `mura_uv` — it's a physical panel calibration, not
   something that should follow the pixel-art grid.
 
