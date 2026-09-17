@@ -191,6 +191,16 @@ float2 GetGrainCoord(float2 texcoord)
     return floor(texcoord / blockUV) * blockUV;
 }
 
+// Interleaved Gradient Noise. Replaces the Box-Muller gaussian this shader used to dither
+// with: that distribution is unbounded, so its tails landed as bright specks on flat dark
+// areas, and being white noise its energy sat right where the eye is most sensitive. IGN
+// is bounded to [0,1) and pushes its energy high-frequency, so it breaks banding just as
+// well at the same amplitude without reading as sensor noise. Static by design — the old
+// Timer-driven animation made the same noise shimmer, which is what makes it visible.
+float DitherNoise(float2 pixelPos)
+{
+    return frac(52.9829189 * frac(dot(pixelPos, float2(0.06711056, 0.00583715))));
+}
 
 float3 SampleOffset(float2 texcoord, int2 offset)
 {
@@ -261,27 +271,13 @@ float3 MuraDeck(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Targ
     {
         float inv_luma = dot(color, float3(-1.0 / 3.0, -1.0 / 3.0, -1.0 / 3.0)) + 1.0;
         float stn = GrainFadeNearBright != 0 ? pow(abs(inv_luma), (float)GrainFadeNearBright) : 1.0;
-        float variance = (Variance * Variance) * stn;
-        float mean = Mean;
-
-        const float PI = 3.1415927;
-        float t = Timer * 0.0022337;
-        float seed = dot(GetGrainCoord(texcoord), float2(12.9898, 78.233));
-        float sine = sin(seed);
-        float cosine = cos(seed);
-        float uniform_noise1 = frac(sine * 43758.5453 + t);
-        float uniform_noise2 = frac(cosine * 53758.5453 - t);
-        uniform_noise1 = max(uniform_noise1, 0.0001);
-
-        float r = sqrt(-log(uniform_noise1));
-        float theta = (2.0 * PI) * uniform_noise2;
-        float gauss_noise1 = variance * r * cos(theta) + mean;
 
         // Fade grain near black
         float fade_black = pow(saturate(luma), GrainFadeNearBlack);
-        float fade_intensity = Intensity * fade_black;
+        float fade_intensity = Intensity * fade_black * stn * Variance;
 
-        color += (gauss_noise1 - 0.5) * fade_intensity;
+        float dither = DitherNoise(GetGrainCoord(texcoord) * ReShade::ScreenSize);
+        color += (dither - Mean) * fade_intensity;
         color = saturate(color);
     }
 
