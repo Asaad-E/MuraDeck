@@ -64,8 +64,8 @@
 ## Shaders — `defaults/shaders/*.fx`
 
 ReShade `.fx` sources: `MuraDeck_SDR.fx`, `MuraDeck_HDR10PQ.fx`, `MuraDeck_HDRscRGB.fx` (mura map + grain + LGG +
-CAS + Pixel Art, one per colorspace), `CAS.fx` (AMD sharpening, used standalone in CAS-only mode — no Pixel Art
-stage there). `ReShade.fxh` / `ReShadeUI.fxh` are the shared ReShade framework headers. These are edited as
+RCAS + Pixel Art, one per colorspace), `CAS.fx` (sharpening only, used standalone in CAS-only mode — no Pixel Art
+stage there; the filename is historical, it runs RCAS like the rest). `ReShade.fxh` / `ReShadeUI.fxh` are the shared ReShade framework headers. These are edited as
 HLSL/ReShade FX source, not TS/Python — editing them requires understanding ReShade's `uniform` annotation
 syntax, since `_patch_fx` depends on exact `uniform float ...` declaration text matching.
 

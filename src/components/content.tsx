@@ -415,7 +415,7 @@ export function Content() {
 
         <PanelSectionRow>
           <ToggleField
-            label="Enable AMD CAS"
+            label="Enable AMD RCAS"
             checked={casEnabled}
             disabled={!currentApp}
             onChange={async (v) => {

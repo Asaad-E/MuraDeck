@@ -41,6 +41,34 @@
   that one-sided survival was itself a source of the raised, blotchy black this plugin exists to avoid.
   Exposed as one global slider rather than a per-game one: it's a property of the panel, not of the content.
 
+- **Sharpening is RCAS (FSR 1.0's second pass), not CAS.** Position in the pipeline decides
+  this: gamescope has already scaled the frame by the time reshade sees it, and RCAS is the
+  pass AMD wrote for sharpening an already-upscaled image, while CAS assumes a natively
+  rendered one. RCAS also carries a noise-detection term — measured on synthetic cases, its
+  edge-response to speckle-response ratio is 3.11 against CAS's 1.40, i.e. it is ~2.2x better
+  at sharpening detail rather than grain, which is what made the old sharpening read as
+  added noise. It is also cheaper: a 5-tap cross instead of CAS's 9 taps. Ported verbatim
+  from `ffx_fsr1.h` and checked against the reference to 2.2e-16 over 20k random
+  neighbourhoods. Trade-off worth knowing: at the same slider position RCAS is roughly half
+  as strong, because `FSR_RCAS_LIMIT` is where AMD caps "natural" sharpening and the
+  sharpness factor only scales below it — CAS had no such ceiling.
+
+- **The sharpness slider maps onto RCAS stops, so its low end is actually low.** AMD's
+  parameter is in stops of reduction (`sharpness = exp2(-stops)`); the 0..1 slider maps onto
+  [2, 0] stops. Under the old CAS, slider 0 was documented as "no sharpening" but still
+  boosted a fine detail by ~16% — there was no gentle setting at all, only off or strong.
+  Slider 0 now measures ~2%. The uniform is still named `Sharpness` with the same 0..1
+  range, so `_patch_fx` is untouched.
+
+- **scRGB is normalised before sharpening and restored after.** RCAS's limiter is built
+  around a 1.0 signal ceiling (AMD's `peakC = (1.0, -4.0)`), but scRGB is linear and
+  unbounded. Under the old CAS this meant `2.0 - mx` went negative and `saturate` drove the
+  sharpening amount to exactly zero, so sharpening silently switched itself off on anything
+  brighter than SDR white — sharp in the dark parts of an HDR frame, absent in the bright
+  ones. `RcasEncode`/`RcasDecode` (`x/(1+x)` and its inverse) map into [0,1) and back, which
+  is what AMD's `FsrRcasInputF` hook is for; measured sharpening is now consistent (~5%)
+  from 0.5 to 8.0 instead of dying at 1.0.
+
 - **Dithering uses Interleaved Gradient Noise, not the Box-Muller gaussian it was written with.** The gaussian
   is unbounded, so its tails landed as bright specks on flat dark areas, and white noise puts its energy exactly
   where the eye is most sensitive; it was also `Timer`-driven, and the resulting shimmer is what made it

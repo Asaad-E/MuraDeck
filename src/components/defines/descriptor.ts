@@ -46,13 +46,13 @@ export const Desc: Record<EffectKey, EffectMeta> = {
     icon: FaFlipboard,
   },
   cas: {
-    title: "AMD CAS",
-    desc: "AMD's Contrast Adaptive Sharpening (CAS), enabling sharpening with optional upscaling to restore detail lost",
+    title: "AMD RCAS",
+    desc: "AMD's Robust Contrast Adaptive Sharpening, the sharpening pass of FSR 1.0. It is the one built for sharpening a frame that has already been scaled, which is what gamescope hands us, and it backs off where the local detail looks like noise rather than an edge",
     icon: FaCuttlefish,
   },
   cas_slider: {
     title: "Sharpness",
-    desc: "0 is default CAS, 1 is more sharpness",
+    desc: "0 is gentle, 1 is the most AMD considers natural. Mapped onto RCAS sharpness stops",
     icon: FaCuttlefish,
   },
   pixelate: {
