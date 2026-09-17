@@ -1,7 +1,7 @@
 import { IconType } from "react-icons";
 import { FaTabletAlt, FaFirstdraft, FaFlipboard, FaBarcode, FaCuttlefish, FaBraille, FaThLarge } from "react-icons/fa";
 
-export type EffectKey = 'mura' | 'monitor' | 'brightness' | 'grain' | 'lgg' | 'aspectfix' | 'cas' | 'cas_slider' | 'pixelate' | 'pixelate_slider' | 'shadowguard' | 'loading';
+export type EffectKey = 'mura' | 'monitor' | 'brightness' | 'grain' | 'lgg' | 'aspectfix' | 'cas' | 'cas_slider' | 'pixelate' | 'pixelate_slider' | 'muraresponse' | 'loading';
 
 export interface EffectMeta {
   title: string;
@@ -30,9 +30,9 @@ export const Desc: Record<EffectKey, EffectMeta> = {
     desc: "Smooth out fading effects by using small amount of film grain on dark areas. Disable it if you find distracting",
     icon: FaFirstdraft,
   },
-  shadowguard: {
-    title: "Shadow Guard",
-    desc: "Holds mura correction back in dark areas. The mura map is a fixed offset, so on a near-black pixel it is a huge relative change — and since only red and green have maps, it shows up as coloured noise on dark greys and blues. Raise this if shadows look noisy; lower it if mura is visible in dark scenes.",
+  muraresponse: {
+    title: "Mura Response",
+    desc: "How the correction follows the picture. A panel's mura tracks how hard each pixel is driven, so at 1 the correction scales with the pixel's own level — which keeps it out of the shadows, where a flat offset was a huge relative change and showed up as coloured noise on dark greys and blues. At 0 it goes back to a flat offset. Real panels sit somewhere between, so trust your eyes over the default.",
     icon: FaBarcode,
   },
   lgg: {

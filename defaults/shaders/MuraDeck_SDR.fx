@@ -118,10 +118,10 @@ uniform float MuraMapScale < __UNIFORM_SLIDER_FLOAT1
     ui_tooltip = "Controls how aggressive mura map.";
 > = 0.0625;
 
-uniform float MuraShadowGuard < __UNIFORM_SLIDER_FLOAT1
+uniform float MuraResponse < __UNIFORM_SLIDER_FLOAT1
     ui_min = 0.0; ui_max = 1.0;
-    ui_label = "Mura Shadow Guard";
-    ui_tooltip = "How far up the tone range mura correction stays suppressed. Higher = cleaner dark greys/blues, at the cost of leaving mura uncorrected in the shadows.";
+    ui_label = "Mura Response Curve";
+    ui_tooltip = "0 treats mura as a fixed offset, 1 scales the correction with each pixel's own level. Higher suits a gain-type panel error and keeps shadows clean.";
 > = 1.0;
 
 texture red_tex < source = "red.png"; > { Width = 1280; Height = 800; Format = RGBA8; };
@@ -316,16 +316,13 @@ float3 MuraDeck(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Targ
         float3 red = tex2D(red_s, mura_uv).rgb;
         float3 green = tex2D(green_s, mura_uv).rgb;
 
-        // pow(luma, MuraFadeNearBlack) alone never actually faded anything: with the
-        // exponent tuned down to ~0.02 it evaluates to ~0.94 at luma 0.05, so the map was
-        // landing at near-full strength on dark greys and blues. A fixed +/- offset there
-        // is a >100% *relative* perturbation of the pixel, and since only R and G have
-        // maps it perturbs them chromatically — which is the colour noise on dark blues.
-        // The smoothstep is the fade that was intended: zero at the cutoff, full by the
-        // time there is enough signal to hide a correction in.
-        float shadow_fade = smoothstep(
-            MuraBlackCutoff, lerp(0.04, 0.40, MuraShadowGuard), luma);
-        float fade_mura = pow(saturate(luma), MuraFadeNearBlack) * shadow_fade;
+        // Demura is measured per grey level in industry, because a pixel's deviation tracks
+        // its drive level instead of being constant. With one map and one scale the closest
+        // we get is scaling the correction by the pixel's own level, which is exactly right
+        // for a gain-type error and subsumes the shadow gate this replaces - no threshold to
+        // pick, and it measured better in every tone band.
+        float response = lerp(1.0, saturate(luma / 0.5), MuraResponse);
+        float fade_mura = pow(saturate(luma), MuraFadeNearBlack) * response;
 
         // Limit the offset to the headroom the pixel actually has on each side. Without
         // this the negative half of the map clips at 0 on dark pixels while the positive

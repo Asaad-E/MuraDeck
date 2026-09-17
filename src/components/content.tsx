@@ -39,7 +39,7 @@ export function Content() {
   const [pixelateBlockSize, setPixelateBlockSize] = useState(4);
   const [perAppPixelate, setPerAppPixelate] = useState(false);
 
-  const [muraShadowGuard, setMuraShadowGuard] = useState(1.0);
+  const [muraResponse, setMuraResponse] = useState(1.0);
 
   const [externalMonitor, setExternalMonitor] = useState<boolean | null>(null);
 
@@ -104,10 +104,10 @@ export function Content() {
       } catch { }
     }
 
-    // mura shadow guard
+    // mura response curve
     try {
-      const guard = await call<[], number>("get_mura_shadow_guard");
-      setMuraShadowGuard(guard);
+      const resp = await call<[], number>("get_mura_response");
+      setMuraResponse(resp);
     } catch { }
 
     // per-app or global sharpness & CAS
@@ -330,25 +330,25 @@ export function Content() {
           </PanelSectionRow>
         </EffectInfo>
 
-        <EffectInfo effectKey="shadowguard">
+        <EffectInfo effectKey="muraresponse">
           <PanelSectionRow>
             <SliderField
-              label={Desc.shadowguard.title}
+              label={Desc.muraresponse.title}
               min={0}
               max={1}
               step={0.1}
               notchCount={3}
               notchLabels={[
-                { notchIndex: 0, label: "Off" },
-                { notchIndex: 1, label: "Balanced" },
-                { notchIndex: 2, label: "Clean" },
+                { notchIndex: 0, label: "Flat" },
+                { notchIndex: 1, label: "Mixed" },
+                { notchIndex: 2, label: "Gain" },
               ]}
-              value={muraShadowGuard}
+              value={muraResponse}
               showValue
               disabled={!welcomePassed || shaderReady === false}
               onChange={async (v: number) => {
-                setMuraShadowGuard(v);
-                await call<[number], void>("set_mura_shadow_guard", v);
+                setMuraResponse(v);
+                await call<[number], void>("set_mura_response", v);
               }}
             />
           </PanelSectionRow>

@@ -129,7 +129,7 @@ class Plugin:
 
         self._brightness_enabled = settings.getSetting("brightness_enabled", True)
 
-        self._mura_shadow_guard: float = settings.getSetting("mura_shadow_guard", 1.0)
+        self._mura_response: float = settings.getSetting("mura_response", 1.0)
 
     async def _main(self):
         decky.logger.info("[MuraDeck] Started")
@@ -591,18 +591,18 @@ class Plugin:
     async def get_lgg(self) -> bool:
         return self._lgg_enabled
 
-    # Mura shadow guard — how far up the tone range mura correction stays suppressed.
-    # Panel-wide, so global only: it isn't a per-game or per-display choice.
-    async def set_mura_shadow_guard(self, value: float):
-        settings.setSetting("mura_shadow_guard", value)
+    # How strongly the mura correction follows each pixel's own level instead of being a
+    # flat offset. Panel-wide, so global only: it isn't a per-game or per-display choice.
+    async def set_mura_response(self, value: float):
+        settings.setSetting("mura_response", value)
         settings.commit()
-        self._mura_shadow_guard = value
-        decky.logger.info(f"[MuraDeck] Mura Shadow Guard = {value}")
+        self._mura_response = value
+        decky.logger.info(f"[MuraDeck] Mura Response = {value}")
         await self._patch_fx(self.current_effect)
         await self._set_effect(self.current_effect)
 
-    async def get_mura_shadow_guard(self) -> float:
-        return self._mura_shadow_guard
+    async def get_mura_response(self) -> float:
+        return self._mura_response
     
     # Global Sharpness
     async def set_global_sharpness(self, value: float):
@@ -906,7 +906,7 @@ class Plugin:
         sharpness = self._current_sharpness
         pixelate_enabled = 1.0 if self._pixelate_enabled else 0.0
         pixelate_block_size = self._pixelate_block_size
-        mura_shadow_guard = self._mura_shadow_guard
+        mura_response = self._mura_response
 
         with open(path, "r") as f:
             lines = f.readlines()
@@ -976,17 +976,17 @@ class Plugin:
                 ])
                 continue
 
-            # patch Mura shadow guard
-            if "uniform float MuraShadowGuard" in stripped:
+            # patch Mura response curve
+            if "uniform float MuraResponse" in stripped:
                 while i < len(lines) and ">" not in lines[i]:
                     i += 1
                 i += 1
                 out.extend([
-                    'uniform float MuraShadowGuard < __UNIFORM_SLIDER_FLOAT1\n',
+                    'uniform float MuraResponse < __UNIFORM_SLIDER_FLOAT1\n',
                     '\tui_min = 0.0; ui_max = 1.0;\n',
-                    '\tui_label = "Mura Shadow Guard";\n',
-                    '\tui_tooltip = "How far up the tone range mura correction stays suppressed.";\n',
-                    f'> = {mura_shadow_guard};\n'
+                    '\tui_label = "Mura Response Curve";\n',
+                    '\tui_tooltip = "0 treats mura as a flat offset, 1 scales it with the pixel level.";\n',
+                    f'> = {mura_response};\n'
                 ])
                 continue
 
@@ -1077,7 +1077,7 @@ class Plugin:
             f"LGG Lift/Gamma=({lgg_lift_value},{lgg_gamma_value})"
             f"CAS={cas_enabled}, Sharpness={sharpness}, "
             f"Pixelate={pixelate_enabled}({pixelate_block_size}), "
-            f"ShadowGuard={mura_shadow_guard}"
+            f"MuraResponse={mura_response}"
         )
 
     async def _clear_effect(self):

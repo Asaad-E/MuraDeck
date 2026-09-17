@@ -165,10 +165,10 @@ uniform float MuraMapScale < __UNIFORM_SLIDER_FLOAT1
 	ui_tooltip = "Controls how aggressive mura map.";
 > = 0.0125;
 
-uniform float MuraShadowGuard < __UNIFORM_SLIDER_FLOAT1
+uniform float MuraResponse < __UNIFORM_SLIDER_FLOAT1
     ui_min = 0.0; ui_max = 1.0;
-    ui_label = "Mura Shadow Guard";
-    ui_tooltip = "How far up the tone range mura correction stays suppressed. Higher = cleaner dark greys/blues, at the cost of leaving mura uncorrected in the shadows.";
+    ui_label = "Mura Response Curve";
+    ui_tooltip = "0 treats mura as a fixed offset, 1 scales the correction with each pixel's own level. Higher suits a gain-type panel error and keeps shadows clean.";
 > = 1.0;
 
 texture red_tex < source = "red.png"; > { Width = 1280; Height = 800; Format = RGBA8; };
@@ -382,17 +382,16 @@ float3 MuraDeck(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Targ
         float3 red = tex2D(red_s, mura_uv).rgb;
         float3 green = tex2D(green_s, mura_uv).rgb;
 
-        // fade_dark here saturates to 1 by luma ~0.003, so everything above near-black got
-        // the map at full strength. A fixed +/- offset is a large *relative* perturbation
-        // of a dark pixel, and since only R and G have maps it perturbs them chromatically
-        // — the colour noise on dark greys and blues. The smoothstep extends the fade up
-        // through the shadows where a correction has no signal to hide in.
+        // A fixed offset is a huge *relative* perturbation of a dark pixel, and since only
+        // R and G have maps, a chromatic one - the colour noise on dark greys and blues.
+        // Demura is measured per grey level in industry because a pixel's deviation tracks
+        // its drive level rather than being constant; with one map the closest we get is
+        // scaling by the pixel's own level, which needs no threshold to pick.
         float fade_dark = saturate((luma - MuraFadeBlackOffset) * MuraFadeBlackSharpness);
         fade_dark = pow(fade_dark, MuraFadeNearBlack);
         float fade_bright = pow(1.0 - saturate(luma), MuraFadeNearBright);
-        float shadow_fade = smoothstep(
-            MuraBlackCutoff, lerp(0.04, 0.40, MuraShadowGuard), luma);
-        float mura_blend = fade_dark * fade_bright * shadow_fade;
+        float response = lerp(1.0, saturate(luma / 0.5), MuraResponse);
+        float mura_blend = fade_dark * fade_bright * response;
 
         // Limit the offset to how far the pixel can move down before hitting zero, so the
         // negative half of the map can't clip away and leave only its positive half behind
