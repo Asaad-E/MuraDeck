@@ -14,6 +14,7 @@ import { StatusButton } from "./styles/statusButton";
 
 import { DisplayMode } from "../hooks/displayMode";
 import { Desc } from "./defines/descriptor";
+import { PLUGIN_NAME, PLUGIN_VERSION } from "../utils/rollup";
 
 export function Content() {
   const [welcomePassed, setWelcomePassed] = useState(false);
@@ -557,6 +558,17 @@ export function Content() {
           </PanelSectionRow>
         </EffectInfo>
       </PanelSection>
+
+      <div
+        style={{
+          fontSize: 11,
+          textAlign: "center",
+          padding: "4px 0 8px",
+          color: "rgba(255,255,255,0.35)",
+        }}
+      >
+        {PLUGIN_NAME} {PLUGIN_VERSION}
+      </div>
     </>
   );
 }
