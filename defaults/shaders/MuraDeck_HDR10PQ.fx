@@ -127,6 +127,12 @@ uniform float MuraMapScale < __UNIFORM_SLIDER_FLOAT1
     ui_tooltip = "Controls how aggressive mura map.";
 > = 0.3;
 
+uniform float MuraShadowGuard < __UNIFORM_SLIDER_FLOAT1
+    ui_min = 0.0; ui_max = 1.0;
+    ui_label = "Mura Shadow Guard";
+    ui_tooltip = "How far up the tone range mura correction stays suppressed. Higher = cleaner dark greys/blues, at the cost of leaving mura uncorrected in the shadows.";
+> = 1.0;
+
 texture red_tex < source = "red.png"; > { Width = 1280; Height = 800; Format = RGBA8; };
 texture green_tex < source = "green.png"; > { Width = 1280; Height = 800; Format = RGBA8; };
 
@@ -322,15 +328,26 @@ float3 MuraDeck(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Targ
         float3 red = tex2D(red_s, mura_uv).rgb;
         float3 green = tex2D(green_s, mura_uv).rgb;
 
-        float3 mura_correction = color;
-        mura_correction.r += (red.r - 0.5) * MuraMapScale;
-        mura_correction.g += (green.g - 0.5) * MuraMapScale;
-
+        // fade_dark alone never faded anything (MuraFadeNearBlack is tuned to ~0, and
+        // pow(x, 0) is 1), so the map landed at near-full strength on dark greys and blues.
+        // A fixed +/- offset there is a >100% *relative* perturbation of the pixel, and
+        // since only R and G have maps it perturbs them chromatically — the colour noise
+        // on dark blues. The smoothstep is the shadow fade that was missing.
         float fade_dark = pow(saturate(luma), MuraFadeNearBlack);
         float fade_bright = pow(1.0 - saturate(luma), MuraFadeNearWhite);
-        float mura_blend = fade_dark * fade_bright;
+        float shadow_fade = smoothstep(
+            MuraBlackCutoff, lerp(0.04, 0.40, MuraShadowGuard), luma);
+        float mura_blend = fade_dark * fade_bright * shadow_fade;
 
-        color = lerp(color, mura_correction, mura_blend);
+        // Limit the offset to the headroom the pixel actually has on each side, so the
+        // negative half of the map can't clip away on dark pixels and leave only its
+        // positive half behind as a raised, blotchy black.
+        float3 mura_offset =
+            float3(red.r - 0.5, green.g - 0.5, 0.0) * MuraMapScale * mura_blend;
+        float3 headroom = min(color, 1.0 - color);
+        mura_offset = clamp(mura_offset, -headroom, headroom);
+
+        color = saturate(color + mura_offset);
     }
 
     return color;

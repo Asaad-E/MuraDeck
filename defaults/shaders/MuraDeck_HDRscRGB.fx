@@ -165,6 +165,12 @@ uniform float MuraMapScale < __UNIFORM_SLIDER_FLOAT1
 	ui_tooltip = "Controls how aggressive mura map.";
 > = 0.0125;
 
+uniform float MuraShadowGuard < __UNIFORM_SLIDER_FLOAT1
+    ui_min = 0.0; ui_max = 1.0;
+    ui_label = "Mura Shadow Guard";
+    ui_tooltip = "How far up the tone range mura correction stays suppressed. Higher = cleaner dark greys/blues, at the cost of leaving mura uncorrected in the shadows.";
+> = 1.0;
+
 texture red_tex < source = "red.png"; > { Width = 1280; Height = 800; Format = RGBA8; };
 texture green_tex < source = "green.png"; > { Width = 1280; Height = 800; Format = RGBA8; };
 
@@ -369,16 +375,28 @@ float3 MuraDeck(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Targ
         float3 red = tex2D(red_s, mura_uv).rgb;
         float3 green = tex2D(green_s, mura_uv).rgb;
 
-        float3 mura_correction = color;
-        mura_correction.r += (red.r - 0.5) * MuraMapScale;
-        mura_correction.g += (green.g - 0.5) * MuraMapScale;
-
+        // fade_dark here saturates to 1 by luma ~0.003, so everything above near-black got
+        // the map at full strength. A fixed +/- offset is a large *relative* perturbation
+        // of a dark pixel, and since only R and G have maps it perturbs them chromatically
+        // — the colour noise on dark greys and blues. The smoothstep extends the fade up
+        // through the shadows where a correction has no signal to hide in.
         float fade_dark = saturate((luma - MuraFadeBlackOffset) * MuraFadeBlackSharpness);
         fade_dark = pow(fade_dark, MuraFadeNearBlack);
         float fade_bright = pow(1.0 - saturate(luma), MuraFadeNearBright);
-        float mura_blend = fade_dark * fade_bright;
+        float shadow_fade = smoothstep(
+            MuraBlackCutoff, lerp(0.04, 0.40, MuraShadowGuard), luma);
+        float mura_blend = fade_dark * fade_bright * shadow_fade;
 
-        color = lerp(color, mura_correction, mura_blend);
+        // Limit the offset to how far the pixel can move down before hitting zero, so the
+        // negative half of the map can't clip away and leave only its positive half behind
+        // as a raised, blotchy black. scRGB is linear and unbounded above, so only the
+        // downward side needs guarding.
+        float3 mura_offset =
+            float3(red.r - 0.5, green.g - 0.5, 0.0) * MuraMapScale * mura_blend;
+        float3 headroom = max(color, 0.0);
+        mura_offset = clamp(mura_offset, -headroom, headroom);
+
+        color = color + mura_offset;
     }
 
     return color;

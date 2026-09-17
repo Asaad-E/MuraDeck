@@ -39,6 +39,8 @@ export function Content() {
   const [pixelateBlockSize, setPixelateBlockSize] = useState(4);
   const [perAppPixelate, setPerAppPixelate] = useState(false);
 
+  const [muraShadowGuard, setMuraShadowGuard] = useState(1.0);
+
   const [externalMonitor, setExternalMonitor] = useState<boolean | null>(null);
 
   const [isTogglingEnabled, setIsTogglingEnabled] = useState(false);
@@ -101,6 +103,12 @@ export function Content() {
         setLGG(l);
       } catch { }
     }
+
+    // mura shadow guard
+    try {
+      const guard = await call<[], number>("get_mura_shadow_guard");
+      setMuraShadowGuard(guard);
+    } catch { }
 
     // per-app or global sharpness & CAS
     if (currentApp?.appid) {
@@ -318,6 +326,30 @@ export function Content() {
                 delayToggle("toggle_lgg", v, setLGG, setIsTogglingLGG)
               }
               icon={<Desc.lgg.icon />}
+            />
+          </PanelSectionRow>
+        </EffectInfo>
+
+        <EffectInfo effectKey="shadowguard">
+          <PanelSectionRow>
+            <SliderField
+              label={Desc.shadowguard.title}
+              min={0}
+              max={1}
+              step={0.1}
+              notchCount={3}
+              notchLabels={[
+                { notchIndex: 0, label: "Off" },
+                { notchIndex: 1, label: "Balanced" },
+                { notchIndex: 2, label: "Clean" },
+              ]}
+              value={muraShadowGuard}
+              showValue
+              disabled={!welcomePassed || shaderReady === false}
+              onChange={async (v: number) => {
+                setMuraShadowGuard(v);
+                await call<[number], void>("set_mura_shadow_guard", v);
+              }}
             />
           </PanelSectionRow>
         </EffectInfo>

@@ -1,7 +1,7 @@
 import { IconType } from "react-icons";
 import { FaTabletAlt, FaFirstdraft, FaFlipboard, FaBarcode, FaCuttlefish, FaBraille, FaThLarge } from "react-icons/fa";
 
-export type EffectKey = 'mura' | 'monitor' | 'brightness' | 'grain' | 'lgg' | 'aspectfix' | 'cas' | 'cas_slider' | 'pixelate' | 'pixelate_slider' | 'loading';
+export type EffectKey = 'mura' | 'monitor' | 'brightness' | 'grain' | 'lgg' | 'aspectfix' | 'cas' | 'cas_slider' | 'pixelate' | 'pixelate_slider' | 'shadowguard' | 'loading';
 
 export interface EffectMeta {
   title: string;
@@ -29,6 +29,11 @@ export const Desc: Record<EffectKey, EffectMeta> = {
     title: "Dithering",
     desc: "Smooth out fading effects by using small amount of film grain on dark areas. Disable it if you find distracting",
     icon: FaFirstdraft,
+  },
+  shadowguard: {
+    title: "Shadow Guard",
+    desc: "Holds mura correction back in dark areas. The mura map is a fixed offset, so on a near-black pixel it is a huge relative change — and since only red and green have maps, it shows up as coloured noise on dark greys and blues. Raise this if shadows look noisy; lower it if mura is visible in dark scenes.",
+    icon: FaBarcode,
   },
   lgg: {
     title: "Gamma Correction",
