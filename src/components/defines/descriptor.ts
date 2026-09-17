@@ -1,7 +1,7 @@
 import { IconType } from "react-icons";
-import { FaTabletAlt, FaFirstdraft, FaFlipboard, FaBarcode, FaCuttlefish, FaBraille } from "react-icons/fa";
+import { FaTabletAlt, FaFirstdraft, FaFlipboard, FaBarcode, FaCuttlefish, FaBraille, FaThLarge } from "react-icons/fa";
 
-export type EffectKey = 'mura' | 'monitor' | 'brightness' | 'grain' | 'lgg' | 'aspectfix' | 'cas' | 'cas_slider' | 'loading';
+export type EffectKey = 'mura' | 'monitor' | 'brightness' | 'grain' | 'lgg' | 'aspectfix' | 'cas' | 'cas_slider' | 'pixelate' | 'pixelate_slider' | 'loading';
 
 export interface EffectMeta {
   title: string;
@@ -49,6 +49,16 @@ export const Desc: Record<EffectKey, EffectMeta> = {
     title: "Sharpness",
     desc: "0 is default CAS, 1 is more sharpness",
     icon: FaCuttlefish,
+  },
+  pixelate: {
+    title: "Pixel Art Mode",
+    desc: "Recreates a crisp, blocky pixel-art look on top of the (always LINEAR) system scaling — for fullscreen pixel-art games and old visual novels where Linear looks blurry and Nearest/Pixel isn't usable with reshade active.",
+    icon: FaThLarge,
+  },
+  pixelate_slider: {
+    title: "Block Size",
+    desc: "Size of each recreated pixel block, in screen pixels. Tune to match the game's native resolution scale.",
+    icon: FaThLarge,
   },
   loading: {
     title: "Processing...",

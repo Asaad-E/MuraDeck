@@ -119,9 +119,13 @@ class Plugin:
         if self._is_external_display:
             self._current_cas: bool = settings.getSetting("cas_enabled_global_external", True)
             self._current_sharpness: float = settings.getSetting("sharpness_global_external", 0.0)
+            self._pixelate_enabled: bool = settings.getSetting("pixelate_enabled_global_external", False)
+            self._pixelate_block_size: float = settings.getSetting("pixelate_blocksize_global_external", 4.0)
         else:
             self._current_cas: bool = settings.getSetting("cas_enabled_global_internal", False)
             self._current_sharpness: float = settings.getSetting("sharpness_global_internal", 0.0)
+            self._pixelate_enabled: bool = settings.getSetting("pixelate_enabled_global_internal", False)
+            self._pixelate_block_size: float = settings.getSetting("pixelate_blocksize_global_internal", 4.0)
 
         self._brightness_enabled = settings.getSetting("brightness_enabled", True)
 
@@ -730,6 +734,128 @@ class Plugin:
     async def get_sharpness_perapp_enabled(self, appid: int) -> bool:
         return await self.get_per_app_enabled(appid)
 
+    # Global Pixelate
+    async def set_global_pixelate(self, value: bool):
+        key = (
+            "pixelate_enabled_global_external"
+            if self._is_external_display else
+            "pixelate_enabled_global_internal"
+        )
+        settings.setSetting(key, value)
+        settings.commit()
+
+    async def get_global_pixelate(self) -> bool:
+        key = (
+            "pixelate_enabled_global_external"
+            if self._is_external_display else
+            "pixelate_enabled_global_internal"
+        )
+        return settings.getSetting(key, False)
+
+    # Per-App Pixelate
+    async def set_app_pixelate(self, appid: int, value: bool):
+        key = (
+            f"pixelate_enabled_app_{appid}_external"
+            if self._is_external_display else
+            f"pixelate_enabled_app_{appid}_internal"
+        )
+        settings.setSetting(key, value)
+        settings.commit()
+
+    async def get_app_pixelate(self, appid: int) -> bool | None:
+        key = (
+            f"pixelate_enabled_app_{appid}_external"
+            if self._is_external_display else
+            f"pixelate_enabled_app_{appid}_internal"
+        )
+        return settings.getSetting(key, None)
+
+    async def set_pixelate_perapp_enabled(self, appid: int, enabled: bool):
+        settings.setSetting(f"pixelate_perapp_enabled_{appid}", enabled)
+        settings.commit()
+
+    async def get_pixelate_perapp_enabled(self, appid: int) -> bool:
+        return settings.getSetting(f"pixelate_perapp_enabled_{appid}", False)
+
+    # Pixelate Activation
+    async def set_pixelate(self, value: bool, appid: int | None, per_app: bool):
+        if per_app and appid is not None:
+            await self.set_app_pixelate(appid, value)
+        else:
+            await self.set_global_pixelate(value)
+
+        self._pixelate_enabled = value
+        await self._patch_fx(self.current_effect)
+        await self._set_effect(self.current_effect)
+
+    async def get_pixelate(self, appid: int | None = None) -> bool:
+        if appid is not None and await self.get_pixelate_perapp_enabled(appid):
+            val = await self.get_app_pixelate(appid)
+            if val is not None:
+                return val
+        return await self.get_global_pixelate()
+
+    async def toggle_pixelate_perapp(self, appid: int, enable: bool):
+        await self.set_pixelate_perapp_enabled(appid, enable)
+        val = await self.get_pixelate(appid)
+
+        self._pixelate_enabled = val
+        await self._patch_fx(self.current_effect)
+        await self._set_effect(self.current_effect)
+
+    # Global Pixelate Block Size
+    async def set_global_pixelate_block_size(self, value: float):
+        key = (
+            "pixelate_blocksize_global_external"
+            if self._is_external_display else
+            "pixelate_blocksize_global_internal"
+        )
+        settings.setSetting(key, value)
+        settings.commit()
+
+    async def get_global_pixelate_block_size(self) -> float:
+        key = (
+            "pixelate_blocksize_global_external"
+            if self._is_external_display else
+            "pixelate_blocksize_global_internal"
+        )
+        return settings.getSetting(key, 4.0)
+
+    # Per-App Pixelate Block Size
+    async def set_app_pixelate_block_size(self, appid: int, value: float):
+        key = (
+            f"pixelate_blocksize_app_{appid}_external"
+            if self._is_external_display else
+            f"pixelate_blocksize_app_{appid}_internal"
+        )
+        settings.setSetting(key, value)
+        settings.commit()
+
+    async def get_app_pixelate_block_size(self, appid: int) -> float | None:
+        key = (
+            f"pixelate_blocksize_app_{appid}_external"
+            if self._is_external_display else
+            f"pixelate_blocksize_app_{appid}_internal"
+        )
+        return settings.getSetting(key, None)
+
+    async def set_pixelate_block_size(self, value: float, appid: int | None, per_app: bool):
+        if per_app and appid is not None:
+            await self.set_app_pixelate_block_size(appid, value)
+        else:
+            await self.set_global_pixelate_block_size(value)
+
+        self._pixelate_block_size = value
+        await self._patch_fx(self.current_effect)
+        await self._set_effect(self.current_effect)
+
+    async def get_pixelate_block_size(self, appid: int | None = None) -> float:
+        if appid is not None and await self.get_pixelate_perapp_enabled(appid):
+            v = await self.get_app_pixelate_block_size(appid)
+            if v is not None:
+                return v
+        return await self.get_global_pixelate_block_size()
+
     async def _patch_fx(
             self, fx_name: str, map_scale: float | None = None,
             fade_near: float | None = None):
@@ -763,6 +889,8 @@ class Plugin:
 
         cas_enabled = 1.0 if self._current_cas else 0.0
         sharpness = self._current_sharpness
+        pixelate_enabled = 1.0 if self._pixelate_enabled else 0.0
+        pixelate_block_size = self._pixelate_block_size
 
         with open(path, "r") as f:
             lines = f.readlines()
@@ -802,6 +930,36 @@ class Plugin:
                     f'> = {sharpness};\n'
                 ])
                 continue
+
+            # Pixelate toggle
+            if "uniform float Pixelate_Enabled" in stripped:
+                while i < len(lines) and ">" not in lines[i]:
+                    i += 1
+                i += 1
+                out.extend([
+                    'uniform float Pixelate_Enabled <\n',
+                    '\tui_label = "Turn On/Off Pixel Art Mode";\n',
+                    '\tui_tooltip = "0 := disable, to 1 := enable.";\n',
+                    '\tui_min = 0.0; ui_max = 1.0;\n',
+                    '\tui_step = 1.0;\n',
+                    f'> = {pixelate_enabled};\n'
+                ])
+                continue
+
+            # patch Pixelate block size
+            if "uniform float Pixelate_BlockSize" in stripped:
+                while i < len(lines) and ">" not in lines[i]:
+                    i += 1
+                i += 1
+                out.extend([
+                    'uniform float Pixelate_BlockSize < __UNIFORM_SLIDER_FLOAT1\n',
+                    '\tui_min = 1.0; ui_max = 24.0;\n',
+                    '\tui_label = "Pixel Art Block Size";\n',
+                    '\tui_tooltip = "Size (in screen pixels) of each recreated pixel block. Fractional values matter.";\n',
+                    f'> = {pixelate_block_size};\n'
+                ])
+                continue
+
 
             # patch MuraMapScale
             if map_scale is not None and "uniform float MuraMapScale" in stripped:
@@ -888,7 +1046,8 @@ class Plugin:
         decky.logger.info(
             f"[MuraDeck] FX patched: {fx_name} → Grain={grain_value}, "
             f"LGG Lift/Gamma=({lgg_lift_value},{lgg_gamma_value})"
-            f"CAS={cas_enabled}, Sharpness={sharpness}"
+            f"CAS={cas_enabled}, Sharpness={sharpness}, "
+            f"Pixelate={pixelate_enabled}({pixelate_block_size})"
         )
 
     async def _clear_effect(self):

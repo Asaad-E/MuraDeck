@@ -35,6 +35,10 @@ export function Content() {
   const [perAppCas, setPerAppCas] = useState(false);
   const [perAppSharpness, setPerAppSharpness] = useState(false);
 
+  const [pixelateEnabled, setPixelateEnabled] = useState(false);
+  const [pixelateBlockSize, setPixelateBlockSize] = useState(4);
+  const [perAppPixelate, setPerAppPixelate] = useState(false);
+
   const [externalMonitor, setExternalMonitor] = useState<boolean | null>(null);
 
   const [isTogglingEnabled, setIsTogglingEnabled] = useState(false);
@@ -120,6 +124,29 @@ export function Content() {
         ]);
         setSharpness(sVal);
         setCasEnabled(cVal);
+      } catch { }
+    }
+
+    // per-app or global pixel art
+    if (currentApp?.appid) {
+      try {
+        const [pEn, pVal, pSize] = await Promise.all([
+          call<[number], boolean>("get_pixelate_perapp_enabled", currentApp.appid),
+          call<[number], boolean>("get_pixelate", currentApp.appid),
+          call<[number], number>("get_pixelate_block_size", currentApp.appid),
+        ]);
+        setPerAppPixelate(pEn);
+        setPixelateEnabled(pVal);
+        setPixelateBlockSize(pSize);
+      } catch { }
+    } else {
+      try {
+        const [pVal, pSize] = await Promise.all([
+          call<[], boolean>("get_pixelate"),
+          call<[], number>("get_pixelate_block_size"),
+        ]);
+        setPixelateEnabled(pVal);
+        setPixelateBlockSize(pSize);
       } catch { }
     }
   }, [currentApp?.appid, displayMode]);
@@ -414,6 +441,89 @@ export function Content() {
             }}
           />
         </PanelSectionRow>
+      </PanelSection>
+
+      <PanelSection title="Pixel Art">
+        <PanelSectionRow>
+          <ToggleField
+            label="Per‑game Pixel Art"
+            checked={perAppPixelate}
+            disabled={!currentApp}
+            onChange={async (v) => {
+              if (!currentApp) return;
+              await call<[number, boolean], void>(
+                "toggle_pixelate_perapp",
+                currentApp.appid,
+                v
+              );
+              refreshAll();
+            }}
+            description={
+              perAppPixelate && currentApp ? (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    color: "rgba(255,255,255,0.6)",
+                  }}
+                >
+                  {currentApp.icon && (
+                    <img
+                      src={currentApp.icon}
+                      alt=""
+                      style={{ width: 18, height: 18, borderRadius: 3 }}
+                    />
+                  )}
+                  <span>{currentApp.name}</span>
+                </div>
+              ) : undefined
+            }
+          />
+        </PanelSectionRow>
+
+        <EffectInfo effectKey="pixelate">
+          <PanelSectionRow>
+            <ToggleField
+              label={Desc.pixelate.title}
+              checked={pixelateEnabled}
+              disabled={!currentApp && perAppPixelate}
+              onChange={async (v) => {
+                setPixelateEnabled(v);
+                await call<[boolean, number | null, boolean], void>(
+                  "set_pixelate",
+                  v,
+                  currentApp?.appid ?? null,
+                  perAppPixelate
+                );
+              }}
+              icon={<Desc.pixelate.icon />}
+            />
+          </PanelSectionRow>
+        </EffectInfo>
+
+        <EffectInfo effectKey="pixelate_slider">
+          <PanelSectionRow>
+            <SliderField
+              label="Block Size"
+              min={1}
+              max={24}
+              step={0.25}
+              value={pixelateBlockSize}
+              showValue
+              disabled={!pixelateEnabled || (!currentApp && perAppPixelate)}
+              onChange={async (v: number) => {
+                setPixelateBlockSize(v);
+                await call<[number, number | null, boolean], void>(
+                  "set_pixelate_block_size",
+                  v,
+                  currentApp?.appid ?? null,
+                  perAppPixelate
+                );
+              }}
+            />
+          </PanelSectionRow>
+        </EffectInfo>
       </PanelSection>
     </>
   );

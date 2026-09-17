@@ -23,6 +23,21 @@ uniform float Sharpness <
 > = 0.0;
 
 
+// Pixel Art
+uniform float Pixelate_Enabled <
+    ui_label = "Turn On/Off Pixel Art Mode";
+    ui_tooltip = "0 := disable, to 1 := enable.";
+    ui_min = 0.0; ui_max = 1.0;
+    ui_step = 1.0;
+> = 0.0;
+
+uniform float Pixelate_BlockSize < __UNIFORM_SLIDER_FLOAT1
+    ui_min = 1.0; ui_max = 24.0;
+    ui_label = "Pixel Art Block Size";
+    ui_tooltip = "Size (in screen pixels) of each recreated pixel block. Fractional values matter: a game upscaled by 1.6x needs 1.6, not 2.";
+> = 4.0;
+
+
 // Pre-Contrast
 uniform float PreContrast < __UNIFORM_SLIDER_FLOAT1
     ui_min = 0.5; ui_max = 4.0;
@@ -122,9 +137,81 @@ uniform float Timer < source = "timer"; >;
 
 #include "ReShade.fxh"
 
+// --- Pixel Art helpers ---
+// Reads one exact texel. Every pixel-art tap goes through here: sampling anywhere other
+// than a texel centre lets bilinear filtering blend in the neighbouring texel, which is
+// what made small block sizes come out blurrier than no pixelation at all.
+float3 FetchTexel(float2 uv)
+{
+    return tex2D(ReShade::BackBuffer,
+                 (floor(uv * ReShade::ScreenSize) + 0.5) * ReShade::PixelSize).rgb;
+}
+
+float2 PixelateBlockUV()
+{
+    return max(Pixelate_BlockSize, 1.0) * ReShade::PixelSize;
+}
+
+// Box-averages the texels inside a block so pixelation reads as clean recreated "big
+// pixels" instead of aliased point sampling. Blocks of ~1 screen pixel have nothing to
+// average, so they short-circuit to a single texel and the slider's low end is a true
+// pass-through.
+float3 SampleBlockAverage(float2 blockOrigin, float2 blockUV)
+{
+    if (Pixelate_BlockSize < 1.5)
+        return FetchTexel(blockOrigin + blockUV * 0.5);
+
+    float3 sum = 0.0;
+    sum += FetchTexel(blockOrigin + blockUV * float2(0.16667, 0.16667));
+    sum += FetchTexel(blockOrigin + blockUV * float2(0.50000, 0.16667));
+    sum += FetchTexel(blockOrigin + blockUV * float2(0.83333, 0.16667));
+    sum += FetchTexel(blockOrigin + blockUV * float2(0.16667, 0.50000));
+    sum += FetchTexel(blockOrigin + blockUV * float2(0.50000, 0.50000));
+    sum += FetchTexel(blockOrigin + blockUV * float2(0.83333, 0.50000));
+    sum += FetchTexel(blockOrigin + blockUV * float2(0.16667, 0.83333));
+    sum += FetchTexel(blockOrigin + blockUV * float2(0.50000, 0.83333));
+    sum += FetchTexel(blockOrigin + blockUV * float2(0.83333, 0.83333));
+    return sum * (1.0 / 9.0);
+}
+
+float3 SamplePixelated(float2 texcoord)
+{
+    if (Pixelate_Enabled <= 0.0)
+        return tex2D(ReShade::BackBuffer, texcoord).rgb;
+
+    float2 blockUV = PixelateBlockUV();
+    float2 blockOrigin = floor(texcoord / blockUV) * blockUV;
+    return SampleBlockAverage(blockOrigin, blockUV);
+}
+
+// texcoord snapped to the pixel-art block grid, used to keep grain noise coherent per-block
+// instead of leaking real-pixel-granularity dither into a supposedly clean pixel block.
+float2 GetGrainCoord(float2 texcoord)
+{
+    if (Pixelate_Enabled <= 0.0)
+        return texcoord;
+    float2 blockUV = PixelateBlockUV();
+    return floor(texcoord / blockUV) * blockUV;
+}
+
+
 // --- CAS Helper ---
 float3 SampleOffset(float2 texcoord, int2 offset)
 {
+    if (Pixelate_Enabled > 0.0)
+    {
+        // Step CAS's neighborhood by whole blocks so it sharpens between pixel-art blocks
+        // rather than within one (which would have nothing to sharpen against).
+        float2 blockUV = PixelateBlockUV();
+        float2 blockOrigin = floor(texcoord / blockUV) * blockUV + blockUV * offset;
+
+        // Only the block actually being output needs the full box average; neighbours just
+        // need a representative colour for CAS's min/max window, so one texel is enough
+        // and the combined cost stays at 17 taps instead of 81.
+        if (offset.x == 0 && offset.y == 0)
+            return SampleBlockAverage(blockOrigin, blockUV);
+        return FetchTexel(blockOrigin + blockUV * 0.5);
+    }
     return tex2D(ReShade::BackBuffer, texcoord + ReShade::PixelSize * offset).rgb;
 }
 
@@ -132,9 +219,9 @@ float3 ApplyCAS(float2 texcoord)
 {
     if (CAS_Enabled <= 0.0)
 	{
-		return tex2D(ReShade::BackBuffer, texcoord).rgb;
+		return SamplePixelated(texcoord);
 	}
-    
+
     float3 a = SampleOffset(texcoord, int2(-1, -1));
     float3 b = SampleOffset(texcoord, int2(0, -1));
     float3 c = SampleOffset(texcoord, int2(1, -1));
@@ -185,7 +272,7 @@ float3 MuraDeck(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Targ
 
         const float PI = 3.1415927;
         float t = Timer * 0.0022337;
-        float seed = dot(texcoord, float2(12.9898, 78.233));
+        float seed = dot(GetGrainCoord(texcoord), float2(12.9898, 78.233));
         float sine = sin(seed);
         float cosine = cos(seed);
         float uniform_noise1 = frac(sine * 43758.5453 + t);
