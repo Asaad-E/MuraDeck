@@ -35,7 +35,7 @@
   design) the leftover was *chromatic*, which is why it read as coloured noise on dark greys
   and blues specifically. The `pow(luma, MuraFadeNearBlack)` fade meant to prevent this
   evaluated to ~0.94 at luma 0.05, i.e. it never engaged. First fix was a smoothstep gate;
-  this replaces it with `lerp(1.0, saturate(luma / 0.5), MuraResponse)`, which is how demura
+  this replaces it with `lerp(1.0, color / 0.5, MuraResponse)` per channel, which is how demura
   actually works — industry measures the panel at several grey levels because a pixel's
   deviation tracks its drive level, and scaling by level is the one-map approximation of
   that. Measured against a mura-free reference it beats the gate in every tone band (2.14 vs
