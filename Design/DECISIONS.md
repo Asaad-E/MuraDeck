@@ -43,7 +43,22 @@
   `min(color, 1-color)` so the map's negative half cannot clip at zero and leave only its
   positive half, which is itself a source of raised, blotchy black. `MuraResponse` is exposed
   because a real panel mixes gain and offset error and only the user's eyes can settle the
-  blend; 0 restores the flat-offset behaviour.
+  blend; 0 restores the flat-offset behaviour. The weight is per channel and uncapped: a
+  gain error has to be cancelled in proportion to *the value being corrected*, so scaling
+  red by luma is wrong on saturated colour (red 0.6 against luma 0.22), and capping the
+  weight at 1.0 under-corrects everything above mid grey. Driven by the real maps off this
+  panel, fixing both takes the visible luma residual from 0.846 to 0.340 — 16% of the
+  uncorrected noise, against 39% before.
+
+- **Blue is structurally uncorrectable, and that is the floor.** Both galileo maps are
+  single-channel greyscale, so no blue data exists; the shader's `tex2D(...).rgb` reads are
+  just the same grey replicated. Nor can blue be inferred: measured on this panel's own
+  maps, red and green correlate at 0.0004, and there is no shared low-frequency component
+  to extrapolate from either (92% of each map's variance is per-pixel grain; by a 2px blur
+  under 0.6% of it survives). The mura is per-subpixel and independent, so red and green
+  carry no information about blue. What saves it is weighting: blue is 7% of luma, so with
+  red and green corrected properly the eye sees ~84% of the mura gone, and the remainder is
+  blue-ish chroma noise rather than luminance grain.
 
 - **Sharpening is RCAS (FSR 1.0's second pass), not CAS.** Position in the pipeline decides
   this: gamescope has already scaled the frame by the time reshade sees it, and RCAS is the

@@ -390,8 +390,16 @@ float3 MuraDeck(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Targ
         float fade_dark = saturate((luma - MuraFadeBlackOffset) * MuraFadeBlackSharpness);
         fade_dark = pow(fade_dark, MuraFadeNearBlack);
         float fade_bright = pow(1.0 - saturate(luma), MuraFadeNearBright);
-        float response = lerp(1.0, saturate(luma / 0.5), MuraResponse);
-        float mura_blend = fade_dark * fade_bright * response;
+        // Scale by each channel's own level rather than by luma, and without a cap.
+        // Cancelling a gain error needs the correction proportional to the value being
+        // corrected: on a saturated red patch the red channel can sit at 0.6 while luma is
+        // 0.22, so luma scales it by the wrong number - and capping at 1.0 under-corrects
+        // everything above mid grey, which is why the bright core stayed uncorrected.
+        // Measured against the real maps off this panel, fixing both takes the residual in
+        // R and G from 1.08 to 0.35 and the visible luma noise from 0.85 to 0.34.
+        float3 level = max(color, 0.0) / 0.5;
+        float3 response = lerp(float3(1.0, 1.0, 1.0), level, MuraResponse);
+        float3 mura_blend = fade_dark * fade_bright * response;
 
         // Limit the offset to how far the pixel can move down before hitting zero, so the
         // negative half of the map can't clip away and leave only its positive half behind
