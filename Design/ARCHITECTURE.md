@@ -32,9 +32,6 @@
 - **Mura strength / luma-only sharpening** (`set_mura_strength`, `set_rcas_luma_only`, settings `mura_strength`,
   `rcas_luma_only`): both global. Strength is its own uniform because the brightness table rewrites
   `MuraMapScale` itself and would overwrite a slider writing there.
-- **Multi-pass probe** (`test_multipass`, `MuraDeck_PassTest.fx`, button in the Status tab): a diagnostic, not a
-  feature. Listed in `OPTIONAL_SHADER_FILES` rather than `MURA_SHADER_FILES` on purpose, since
-  `check_shader_status` requires every file in the latter and would report a working install as missing it.
 - **Per-app state**: CAS enabled/sharpness, Pixel Art mode/block size, and mura profile can be global or
   per-`appid` (`*_perapp_enabled` flag + `*_app_{appid}_{internal,external}` keyed settings, same shape for all
   three). `on_focus_change` / `on_game_state_update` (driven by frontend Steam event listeners) restore per-app

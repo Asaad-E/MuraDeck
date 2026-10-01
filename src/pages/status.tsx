@@ -17,9 +17,6 @@ export function StatusTab() {
   const [shaderInstalled, setShaderInstalled] = useState<boolean | null>(null);
   const [installing, setInstalling] = useState(false);
 
-  const [multipass, setMultipass] = useState(false);
-  const [multipassBusy, setMultipassBusy] = useState(false);
-
   const [externalMonitor, setExternalMonitor] = useState<boolean | null>(null);
 
   useEffect(() => {
@@ -49,20 +46,6 @@ export function StatusTab() {
       removeEventListener("monitor_changed", handleMonitorChange);
     };
   }, []);
-
-  // Probe whether gamescope's reshade honours a second pass reading a render target. It can
-  // take the session down if it does not, which is the answer, so it is opt-in and says so.
-  const handleMultipass = async () => {
-    setMultipassBusy(true);
-    try {
-      const next = !multipass;
-      const ok = await call<[boolean], boolean>("test_multipass", next);
-      if (ok) setMultipass(next);
-    } catch (e) {
-      console.error("[MuraDeck] multipass test failed", e);
-    }
-    setMultipassBusy(false);
-  };
 
   const handleReinstall = async () => {
     setInstalling(true);
@@ -127,21 +110,6 @@ export function StatusTab() {
           value={PLUGIN_VERSION}
           onClick={() => { }}
         />
-      </ParallelPanelSection>
-
-      <ParallelPanelSection title="DIAGNOSTICS">
-        <ButtonItem
-          layout="below"
-          disabled={multipassBusy}
-          onClick={handleMultipass}
-          description={
-            multipass
-              ? "Running. Red and blue swapped with a magenta cast means two-pass works. Unchanged or black means it does not. Press again to restore."
-              : "Checks whether a second shader pass is supported. May restart the session if it is not."
-          }
-        >
-          {multipass ? "Stop multi-pass test" : "Run multi-pass test"}
-        </ButtonItem>
       </ParallelPanelSection>
     </>
   );
