@@ -40,9 +40,6 @@ From README's "Known Limitations" and FAQ — treat these as the open backlog, n
   the usual `Compiling pass:` line — black screen, then a fresh Gamescope Session ~9s later. Which of the probe's
   three new things triggers it (a texture with no `source`, a `RenderTarget`, or two passes) was not isolated;
   each variant costs a session restart. Everything here is single-pass because of it.
-- **Debanding** is a candidate: a different problem from AA (colour quantisation steps in smooth gradients, the
-  README's near-black banding complaint). The IGN dither already breaks steps at 1 LSB; debanding would take the
-  larger ones. Single-pass and cheap.
 - **CAS `descriptor.ts` entries (`cas`, `cas_slider`) are unused** — `content.tsx`'s AMD Fidelity FX section
   hardcodes its own labels instead of pulling from `Desc.cas`/`Desc.cas_slider`. Minor inconsistency to clean up
   if touching that section.

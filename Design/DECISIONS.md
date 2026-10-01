@@ -123,6 +123,23 @@
   second pass with a render target would have been the other route, but the probe showed gamescope_reshade
   takes the session down on it (see ROADMAP.md).
 
+- **Debanding is optional, SDR-only, and only clearly helps shallow dark gradients.** Dithering the output cannot
+  remove source banding: a plateau sits on an integer level and rounds straight back to it (banding 0.126 with
+  dither, 0.126 without). What works is averaging across the step to recover the fractional ramp and then
+  dithering to write it back into 8 bits; deband in float then re-quantised *without* dither returns exactly to
+  the source banding (0.890 -> 0.890), so the dither is not optional, and it goes at the very end of the shader
+  so LGG and mura cannot rescale it. Design: four rings of two opposite taps at radii 2/4/8/16, angle hashed per
+  pixel and turned by the golden angle each ring, each tap counted only if within 2.5/255 of the centre in every
+  channel. Radii 2/4/8/16 over 4/8/16/32 because larger reach did better on a plain ramp (0.385 vs 0.418) and
+  worse on curved gradients. Honest result, in relative linear luminance: dark ramp 0.890 -> ~0.41% (-54%,
+  stable across two runs); a mid-tone ramp and a curved vignette moved within the noise of a metric that
+  measures tenths of a percent (an earlier run's -31% on the mid ramp did not reproduce). It adds about a level
+  of fine noise (1.56 -> ~2.4%). Order: shipped as RCAS then deband with the RCAS output as the centre and raw
+  taps, which measured the same as running with RCAS off and never worse; deband-then-RCAS was better on the dark
+  ramp (0.266) and worse on the vignette (0.558 vs 0.483), so it was not preferred. SDR only: HDR10 PQ and scRGB
+  have the range it needs and a 1/255 dither would be gratuitous noise there. Off by default; 8 extra fetches per
+  pixel, with no early-out.
+
 - **Dithering uses Interleaved Gradient Noise, not the Box-Muller gaussian it was written with.** The gaussian
   is unbounded, so its tails landed as bright specks on flat dark areas, and white noise puts its energy exactly
   where the eye is most sensitive; it was also `Timer`-driven, and the resulting shimmer is what made it

@@ -134,6 +134,7 @@ class Plugin:
         self._mura_response: float = settings.getSetting("mura_response", 1.0)
         self._mura_strength: float = settings.getSetting("mura_strength", 1.0)
         self._rcas_luma_only: bool = settings.getSetting("rcas_luma_only", False)
+        self._deband_enabled: bool = settings.getSetting("deband_enabled", False)
 
     async def _main(self):
         decky.logger.info("[MuraDeck] Started")
@@ -648,6 +649,18 @@ class Plugin:
 
     async def get_rcas_luma_only(self) -> bool:
         return self._rcas_luma_only
+
+    # Debanding only exists in the SDR shader, and is a taste setting rather than a per-game one.
+    async def set_deband(self, enable: bool):
+        settings.setSetting("deband_enabled", enable)
+        settings.commit()
+        self._deband_enabled = enable
+        decky.logger.info(f"[MuraDeck] Deband = {enable}")
+        await self._patch_fx(self.current_effect)
+        await self._set_effect(self.current_effect)
+
+    async def get_deband(self) -> bool:
+        return self._deband_enabled
     
     # Global Sharpness
     async def set_global_sharpness(self, value: float):
@@ -1022,6 +1035,7 @@ class Plugin:
         mura_response = self._mura_response
         mura_strength = self._mura_strength
         rcas_luma_only = 1.0 if self._rcas_luma_only else 0.0
+        deband_enabled = 1.0 if self._deband_enabled else 0.0
 
         with open(path, "r") as f:
             lines = f.readlines()
@@ -1103,6 +1117,21 @@ class Plugin:
                     '\tui_min = 0.0; ui_max = 1.0;\n',
                     '\tui_step = 1.0;\n',
                     f'> = {fxaa_enabled};\n'
+                ])
+                continue
+
+            # Deband toggle (SDR shader only; the others have no such uniform)
+            if "uniform float Deband_Enabled" in stripped:
+                while i < len(lines) and ">" not in lines[i]:
+                    i += 1
+                i += 1
+                out.extend([
+                    'uniform float Deband_Enabled <\n',
+                    '\tui_label = "Turn On/Off Debanding";\n',
+                    '\tui_tooltip = "0 := disable, to 1 := enable.";\n',
+                    '\tui_min = 0.0; ui_max = 1.0;\n',
+                    '\tui_step = 1.0;\n',
+                    f'> = {deband_enabled};\n'
                 ])
                 continue
 
@@ -1237,7 +1266,7 @@ class Plugin:
             f"CAS={cas_enabled}, Sharpness={sharpness}, "
             f"Pixelate={pixelate_enabled}({pixelate_block_size}), FXAA={fxaa_enabled}, "
             f"MuraResponse={mura_response}, MuraStrength={mura_strength}, "
-            f"LumaOnly={rcas_luma_only}"
+            f"LumaOnly={rcas_luma_only}, Deband={deband_enabled}"
         )
 
     async def _clear_effect(self):

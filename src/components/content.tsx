@@ -46,6 +46,7 @@ export function Content() {
   const [muraResponse, setMuraResponse] = useState(1.0);
   const [muraStrength, setMuraStrength] = useState(1.0);
   const [lumaOnly, setLumaOnly] = useState(false);
+  const [deband, setDeband] = useState(false);
 
   const [externalMonitor, setExternalMonitor] = useState<boolean | null>(null);
 
@@ -112,14 +113,16 @@ export function Content() {
 
     // mura response curve
     try {
-      const [resp, str, lum] = await Promise.all([
+      const [resp, str, lum, deb] = await Promise.all([
         call<[], number>("get_mura_response"),
         call<[], number>("get_mura_strength"),
         call<[], boolean>("get_rcas_luma_only"),
+        call<[], boolean>("get_deband"),
       ]);
       setMuraResponse(resp);
       setMuraStrength(str);
       setLumaOnly(lum);
+      setDeband(deb);
     } catch { }
 
     // per-app or global sharpness & CAS
@@ -623,7 +626,7 @@ export function Content() {
         </EffectInfo>
       </PanelSection>
 
-      <PanelSection title="Anti-Aliasing">
+      <PanelSection title="Image Quality">
         <PanelSectionRow>
           <ToggleField
             label="Per‑game Anti-Aliasing"
@@ -678,6 +681,20 @@ export function Content() {
                 );
               }}
               icon={<Desc.fxaa.icon />}
+            />
+          </PanelSectionRow>
+        </EffectInfo>
+
+        <EffectInfo effectKey="deband">
+          <PanelSectionRow>
+            <ToggleField
+              label={Desc.deband.title}
+              checked={deband}
+              onChange={async (v) => {
+                setDeband(v);
+                await call<[boolean], void>("set_deband", v);
+              }}
+              icon={<Desc.deband.icon />}
             />
           </PanelSectionRow>
         </EffectInfo>
