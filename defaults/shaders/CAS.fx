@@ -53,6 +53,13 @@ uniform float Sharpness <
 	ui_min = 0.0; ui_max = 1.0;
 > = 0.0;
 
+uniform float RcasLumaOnly <
+    ui_label = "Sharpen luminance only";
+    ui_tooltip = "0 := sharpen each colour channel, 1 := sharpen brightness only and leave colour alone.";
+    ui_min = 0.0; ui_max = 1.0;
+    ui_step = 1.0;
+> = 0.0;
+
 #include "ReShade.fxh"
 
 float3 SampleOffset(float2 texcoord, int2 offset) {
@@ -118,7 +125,15 @@ float3 CASPass(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Targe
     float lobe = max(-RCAS_LIMIT, min(max(max(lobeRGB.r, lobeRGB.g), lobeRGB.b), 0.0));
     lobe *= RcasSharpness() * nz;
 
-    float3 outColor = (lobe * (b + d + f + h) + e) / (4.0 * lobe + 1.0);
+        float3 outColor = (lobe * (b + d + f + h) + e) / (4.0 * lobe + 1.0);
+
+    // Per-channel RCAS sharpens red, green and blue independently, so it also sharpens
+    // whatever chroma noise sits in them - and on this panel red and green have just been
+    // corrected separately, so their residual error is uncorrelated. Carrying only the
+    // brightness change across (the same delta added to every channel) keeps the edge
+    // contrast and leaves hue untouched.
+    if (RcasLumaOnly > 0.0)
+        outColor = e + dot(outColor - e, float3(0.2126, 0.7152, 0.0722));
     return saturate(outColor);
 }
 

@@ -130,6 +130,7 @@ class Plugin:
         self._brightness_enabled = settings.getSetting("brightness_enabled", True)
 
         self._mura_response: float = settings.getSetting("mura_response", 1.0)
+        self._rcas_luma_only: bool = settings.getSetting("rcas_luma_only", False)
 
     async def _main(self):
         decky.logger.info("[MuraDeck] Started")
@@ -603,6 +604,18 @@ class Plugin:
 
     async def get_mura_response(self) -> float:
         return self._mura_response
+
+    # Sharpen brightness only. A quality preference rather than a per-game one, so global.
+    async def set_rcas_luma_only(self, enable: bool):
+        settings.setSetting("rcas_luma_only", enable)
+        settings.commit()
+        self._rcas_luma_only = enable
+        decky.logger.info(f"[MuraDeck] RCAS luma-only = {enable}")
+        await self._patch_fx(self.current_effect)
+        await self._set_effect(self.current_effect)
+
+    async def get_rcas_luma_only(self) -> bool:
+        return self._rcas_luma_only
     
     # Global Sharpness
     async def set_global_sharpness(self, value: float):
@@ -907,6 +920,7 @@ class Plugin:
         pixelate_enabled = 1.0 if self._pixelate_enabled else 0.0
         pixelate_block_size = self._pixelate_block_size
         mura_response = self._mura_response
+        rcas_luma_only = 1.0 if self._rcas_luma_only else 0.0
 
         with open(path, "r") as f:
             lines = f.readlines()
@@ -973,6 +987,21 @@ class Plugin:
                     '\tui_label = "Pixel Art Block Size";\n',
                     '\tui_tooltip = "Size (in screen pixels) of each recreated pixel block. Fractional values matter.";\n',
                     f'> = {pixelate_block_size};\n'
+                ])
+                continue
+
+            # patch RCAS luma-only toggle
+            if "uniform float RcasLumaOnly" in stripped:
+                while i < len(lines) and ">" not in lines[i]:
+                    i += 1
+                i += 1
+                out.extend([
+                    'uniform float RcasLumaOnly <\n',
+                    '\tui_label = "Sharpen luminance only";\n',
+                    '\tui_tooltip = "0 := sharpen each colour channel, 1 := sharpen brightness only.";\n',
+                    '\tui_min = 0.0; ui_max = 1.0;\n',
+                    '\tui_step = 1.0;\n',
+                    f'> = {rcas_luma_only};\n'
                 ])
                 continue
 
@@ -1077,7 +1106,8 @@ class Plugin:
             f"LGG Lift/Gamma=({lgg_lift_value},{lgg_gamma_value})"
             f"CAS={cas_enabled}, Sharpness={sharpness}, "
             f"Pixelate={pixelate_enabled}({pixelate_block_size}), "
-            f"MuraResponse={mura_response}"
+            f"MuraResponse={mura_response}, "
+            f"LumaOnly={rcas_luma_only}"
         )
 
     async def _clear_effect(self):

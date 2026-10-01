@@ -41,6 +41,7 @@ export function Content() {
   const [perAppPixelate, setPerAppPixelate] = useState(false);
 
   const [muraResponse, setMuraResponse] = useState(1.0);
+  const [lumaOnly, setLumaOnly] = useState(false);
 
   const [externalMonitor, setExternalMonitor] = useState<boolean | null>(null);
 
@@ -107,8 +108,12 @@ export function Content() {
 
     // mura response curve
     try {
-      const resp = await call<[], number>("get_mura_response");
+      const [resp, lum] = await Promise.all([
+        call<[], number>("get_mura_response"),
+        call<[], boolean>("get_rcas_luma_only"),
+      ]);
       setMuraResponse(resp);
+      setLumaOnly(lum);
     } catch { }
 
     // per-app or global sharpness & CAS
@@ -444,6 +449,19 @@ export function Content() {
             }
           />
         </PanelSectionRow>
+
+        <EffectInfo effectKey="lumaonly">
+          <PanelSectionRow>
+            <ToggleField
+              label={Desc.lumaonly.title}
+              checked={lumaOnly}
+              onChange={async (v) => {
+                setLumaOnly(v);
+                await call<[boolean], void>("set_rcas_luma_only", v);
+              }}
+            />
+          </PanelSectionRow>
+        </EffectInfo>
 
         <PanelSectionRow>
           <SliderField

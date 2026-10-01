@@ -1,7 +1,7 @@
 import { IconType } from "react-icons";
 import { FaTabletAlt, FaFirstdraft, FaFlipboard, FaBarcode, FaCuttlefish, FaBraille, FaThLarge } from "react-icons/fa";
 
-export type EffectKey = 'mura' | 'monitor' | 'brightness' | 'grain' | 'lgg' | 'aspectfix' | 'cas' | 'cas_slider' | 'pixelate' | 'pixelate_slider' | 'muraresponse' | 'loading';
+export type EffectKey = 'mura' | 'monitor' | 'brightness' | 'grain' | 'lgg' | 'aspectfix' | 'cas' | 'cas_slider' | 'pixelate' | 'pixelate_slider' | 'muraresponse' | 'lumaonly' | 'loading';
 
 export interface EffectMeta {
   title: string;
@@ -34,6 +34,11 @@ export const Desc: Record<EffectKey, EffectMeta> = {
     title: "Mura Response",
     desc: "How the correction follows the picture. A panel's mura tracks how hard each pixel is driven, so at 1 the correction scales with the pixel's own level — which keeps it out of the shadows, where a flat offset was a huge relative change and showed up as coloured noise on dark greys and blues. At 0 it goes back to a flat offset. Real panels sit somewhere between, so trust your eyes over the default.",
     icon: FaBarcode,
+  },
+  lumaonly: {
+    title: "Sharpen Luminance Only",
+    desc: "Sharpens brightness and leaves colour alone. Sharpening each colour channel separately also sharpens whatever colour noise sits in them and can put thin colour fringes on coloured edges; this keeps the edge contrast without either.",
+    icon: FaCuttlefish,
   },
   lgg: {
     title: "Gamma Correction",
