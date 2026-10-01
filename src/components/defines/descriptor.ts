@@ -1,7 +1,7 @@
 import { IconType } from "react-icons";
-import { FaTabletAlt, FaFirstdraft, FaFlipboard, FaBarcode, FaCuttlefish, FaBraille, FaThLarge } from "react-icons/fa";
+import { FaTabletAlt, FaFirstdraft, FaFlipboard, FaBarcode, FaCuttlefish, FaBraille, FaThLarge, FaDrawPolygon } from "react-icons/fa";
 
-export type EffectKey = 'mura' | 'monitor' | 'brightness' | 'grain' | 'lgg' | 'aspectfix' | 'cas' | 'cas_slider' | 'pixelate' | 'pixelate_slider' | 'muraresponse' | 'murastrength' | 'lumaonly' | 'loading';
+export type EffectKey = 'mura' | 'monitor' | 'brightness' | 'grain' | 'lgg' | 'aspectfix' | 'cas' | 'cas_slider' | 'pixelate' | 'pixelate_slider' | 'fxaa' | 'muraresponse' | 'murastrength' | 'lumaonly' | 'loading';
 
 export interface EffectMeta {
   title: string;
@@ -69,6 +69,11 @@ export const Desc: Record<EffectKey, EffectMeta> = {
     title: "Pixel Art Mode",
     desc: "Recreates a crisp, blocky pixel-art look on top of the (always LINEAR) system scaling — for fullscreen pixel-art games and old visual novels where Linear looks blurry and Nearest/Pixel isn't usable with reshade active.",
     icon: FaThLarge,
+  },
+  fxaa: {
+    title: "Anti-Aliasing (FXAA)",
+    desc: "Smooths jagged edges on games that have no anti-aliasing of their own. On a game that already has it, this only softens the picture, and it also softens 1px lines and small text a little. Only edges are touched, and it is switched off while Pixel Art mode is on. Costs a few extra texture reads on edge pixels, so it is off by default.",
+    icon: FaDrawPolygon,
   },
   pixelate_slider: {
     title: "Block Size",

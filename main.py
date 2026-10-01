@@ -121,11 +121,13 @@ class Plugin:
             self._current_sharpness: float = settings.getSetting("sharpness_global_external", 0.0)
             self._pixelate_enabled: bool = settings.getSetting("pixelate_enabled_global_external", False)
             self._pixelate_block_size: float = settings.getSetting("pixelate_blocksize_global_external", 4.0)
+            self._fxaa_enabled: bool = settings.getSetting("fxaa_enabled_global_external", False)
         else:
             self._current_cas: bool = settings.getSetting("cas_enabled_global_internal", False)
             self._current_sharpness: float = settings.getSetting("sharpness_global_internal", 0.0)
             self._pixelate_enabled: bool = settings.getSetting("pixelate_enabled_global_internal", False)
             self._pixelate_block_size: float = settings.getSetting("pixelate_blocksize_global_internal", 4.0)
+            self._fxaa_enabled: bool = settings.getSetting("fxaa_enabled_global_internal", False)
 
         self._brightness_enabled = settings.getSetting("brightness_enabled", True)
 
@@ -291,6 +293,7 @@ class Plugin:
             self._current_sharpness = sharp
             self._pixelate_enabled = await self.get_pixelate(appid)
             self._pixelate_block_size = await self.get_pixelate_block_size(appid)
+            self._fxaa_enabled = await self.get_fxaa(appid)
             await self._patch_fx(self.current_effect)
             await self._set_effect(self.current_effect)
         else:
@@ -321,6 +324,7 @@ class Plugin:
             self._current_cas = cas
             self._pixelate_enabled = await self.get_pixelate(appid)
             self._pixelate_block_size = await self.get_pixelate_block_size(appid)
+            self._fxaa_enabled = await self.get_fxaa(appid)
 
             if self._use_cas_only:
                 decky.logger.info(f"[MuraDeck] [CAS-only] Applying sharp={sharp}, cas={cas}")
@@ -341,6 +345,7 @@ class Plugin:
             self._current_cas = False
             self._pixelate_enabled = await self.get_global_pixelate()
             self._pixelate_block_size = await self.get_global_pixelate_block_size()
+            self._fxaa_enabled = await self.get_global_fxaa()
 
             await self._set_profile("SDR")
             await self._patch_fx(self.current_effect)
@@ -466,6 +471,7 @@ class Plugin:
                         self._current_sharpness = await self.get_sharpness(appid)
                         self._pixelate_enabled = await self.get_pixelate(appid)
                         self._pixelate_block_size = await self.get_pixelate_block_size(appid)
+                        self._fxaa_enabled = await self.get_fxaa(appid)
                         decky.logger.info(f"[Monitor] [External] Refreshed CAS={self._current_cas}, Sharp={self._current_sharpness}")
 
                     if self._monitor_watch_enabled:
@@ -491,6 +497,7 @@ class Plugin:
                         self._current_sharpness = await self.get_sharpness(appid)
                         self._pixelate_enabled = await self.get_pixelate(appid)
                         self._pixelate_block_size = await self.get_pixelate_block_size(appid)
+                        self._fxaa_enabled = await self.get_fxaa(appid)
                         decky.logger.info(f"[Monitor] [Internal] Refreshed CAS={self._current_cas}, Sharp={self._current_sharpness}")
 
                     if self._monitor_watch_enabled:
@@ -909,6 +916,73 @@ class Plugin:
                 return v
         return await self.get_global_pixelate_block_size()
 
+    # Global FXAA
+    async def set_global_fxaa(self, value: bool):
+        key = (
+            "fxaa_enabled_global_external"
+            if self._is_external_display else
+            "fxaa_enabled_global_internal"
+        )
+        settings.setSetting(key, value)
+        settings.commit()
+
+    async def get_global_fxaa(self) -> bool:
+        key = (
+            "fxaa_enabled_global_external"
+            if self._is_external_display else
+            "fxaa_enabled_global_internal"
+        )
+        return settings.getSetting(key, False)
+
+    # Per-App FXAA
+    async def set_app_fxaa(self, appid: int, value: bool):
+        key = (
+            f"fxaa_enabled_app_{appid}_external"
+            if self._is_external_display else
+            f"fxaa_enabled_app_{appid}_internal"
+        )
+        settings.setSetting(key, value)
+        settings.commit()
+
+    async def get_app_fxaa(self, appid: int) -> bool | None:
+        key = (
+            f"fxaa_enabled_app_{appid}_external"
+            if self._is_external_display else
+            f"fxaa_enabled_app_{appid}_internal"
+        )
+        return settings.getSetting(key, None)
+
+    async def set_fxaa_perapp_enabled(self, appid: int, enabled: bool):
+        settings.setSetting(f"fxaa_perapp_enabled_{appid}", enabled)
+        settings.commit()
+
+    async def get_fxaa_perapp_enabled(self, appid: int) -> bool:
+        return settings.getSetting(f"fxaa_perapp_enabled_{appid}", False)
+
+    # FXAA Activation
+    async def set_fxaa(self, value: bool, appid: int | None, per_app: bool):
+        if per_app and appid is not None:
+            await self.set_app_fxaa(appid, value)
+        else:
+            await self.set_global_fxaa(value)
+
+        self._fxaa_enabled = value
+        await self._patch_fx(self.current_effect)
+        await self._set_effect(self.current_effect)
+
+    async def get_fxaa(self, appid: int | None = None) -> bool:
+        if appid is not None and await self.get_fxaa_perapp_enabled(appid):
+            val = await self.get_app_fxaa(appid)
+            if val is not None:
+                return val
+        return await self.get_global_fxaa()
+
+    async def toggle_fxaa_perapp(self, appid: int, enable: bool):
+        await self.set_fxaa_perapp_enabled(appid, enable)
+        self._fxaa_enabled = await self.get_fxaa(appid)
+        await self._patch_fx(self.current_effect)
+        await self._set_effect(self.current_effect)
+
     async def _patch_fx(
             self, fx_name: str, map_scale: float | None = None,
             fade_near: float | None = None):
@@ -944,6 +1018,7 @@ class Plugin:
         sharpness = self._current_sharpness
         pixelate_enabled = 1.0 if self._pixelate_enabled else 0.0
         pixelate_block_size = self._pixelate_block_size
+        fxaa_enabled = 1.0 if self._fxaa_enabled else 0.0
         mura_response = self._mura_response
         mura_strength = self._mura_strength
         rcas_luma_only = 1.0 if self._rcas_luma_only else 0.0
@@ -1013,6 +1088,21 @@ class Plugin:
                     '\tui_label = "Pixel Art Block Size";\n',
                     '\tui_tooltip = "Size (in screen pixels) of each recreated pixel block. Fractional values matter.";\n',
                     f'> = {pixelate_block_size};\n'
+                ])
+                continue
+
+            # FXAA toggle
+            if "uniform float FXAA_Enabled" in stripped:
+                while i < len(lines) and ">" not in lines[i]:
+                    i += 1
+                i += 1
+                out.extend([
+                    'uniform float FXAA_Enabled <\n',
+                    '\tui_label = "Turn On/Off Anti-Aliasing";\n',
+                    '\tui_tooltip = "0 := disable, to 1 := enable.";\n',
+                    '\tui_min = 0.0; ui_max = 1.0;\n',
+                    '\tui_step = 1.0;\n',
+                    f'> = {fxaa_enabled};\n'
                 ])
                 continue
 
@@ -1145,7 +1235,7 @@ class Plugin:
             f"[MuraDeck] FX patched: {fx_name} → Grain={grain_value}, "
             f"LGG Lift/Gamma=({lgg_lift_value},{lgg_gamma_value})"
             f"CAS={cas_enabled}, Sharpness={sharpness}, "
-            f"Pixelate={pixelate_enabled}({pixelate_block_size}), "
+            f"Pixelate={pixelate_enabled}({pixelate_block_size}), FXAA={fxaa_enabled}, "
             f"MuraResponse={mura_response}, MuraStrength={mura_strength}, "
             f"LumaOnly={rcas_luma_only}"
         )

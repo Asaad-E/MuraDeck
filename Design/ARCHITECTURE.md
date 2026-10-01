@@ -9,7 +9,7 @@
   by `_migration()` on first load / reinstall.
 - **FX patching** (`_patch_fx`): mura shaders are plain-text `.fx` ReShade files. The plugin does NOT template
   them — it line-scans for known `uniform float ...` blocks (`CAS_Enabled`, `Sharpness`, `Pixelate_Enabled`,
-  `Pixelate_BlockSize`, `RcasLumaOnly`, `MuraResponse`, `MuraStrength`, `MuraMapScale`, `MuraFadeNearWhite`, `Intensity`, `RGB_Lift`,
+  `Pixelate_BlockSize`, `RcasLumaOnly`, `FXAA_Enabled`, `MuraResponse`, `MuraStrength`, `MuraMapScale`, `MuraFadeNearWhite`, `Intensity`, `RGB_Lift`,
   `RGB_Gamma`) and rewrites each block's default value in place. See [DECISIONS.md](DECISIONS.md) for why.
   The scan keys off the exact declaration text and stops at the first line containing `>`, so a `ui_tooltip`
   must never contain one. `scratchpad/patch_harness.py`-style stubbing of `decky`/`settings` lets this be
@@ -32,6 +32,10 @@
 - **Mura strength / luma-only sharpening** (`set_mura_strength`, `set_rcas_luma_only`, settings `mura_strength`,
   `rcas_luma_only`): both global. Strength is its own uniform because the brightness table rewrites
   `MuraMapScale` itself and would overwrite a slider writing there.
+- **Anti-aliasing (FXAA)** (`set_fxaa`/`get_fxaa`, `toggle_fxaa_perapp`, plus the `*_global_fxaa`/`*_app_fxaa` pairs):
+  same global / per-game shape as Pixel Art, off by default. `FXAA_Enabled` is patched into the three profile
+  shaders (not `CAS.fx`). Its state is loaded wherever a game's other per-game settings are — focus change, game
+  start, game close, monitor change — which is also where the Pixel Art state had been missing.
 - **Per-app state**: CAS enabled/sharpness, Pixel Art mode/block size, and mura profile can be global or
   per-`appid` (`*_perapp_enabled` flag + `*_app_{appid}_{internal,external}` keyed settings, same shape for all
   three). `on_focus_change` / `on_game_state_update` (driven by frontend Steam event listeners) restore per-app

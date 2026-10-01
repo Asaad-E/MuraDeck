@@ -98,17 +98,30 @@
   rewrites `MuraMapScale` on every brightness change, so writing the slider there would be overwritten the next
   time the brightness moved. 0.5x-1.5x on top of the adapted value keeps adaptation intact.
 
-- **No anti-aliasing yet, and the order is fixed if it comes.** MSAA/SSAA/TAA/DLAA need the rasteriser, depth or
-  motion vectors, none of which exist after composition, so only FXAA-class filters are possible. It would run
-  *before* RCAS (AMD requires FSR's input to be anti-aliased; sharpening first emphasises the stair-steps) and
-  *before* mura, whose per-subpixel correction a blur would smear. Pixel Art mode should switch it off, since
-  smoothing quantised blocks undoes the mode. A per-game toggle off by default answers the objection about
-  softening Steam's UI. What blocks it is feeding RCAS the AA'd result: that needs either a second pass with a
-  render target or recomputing FXAA per RCAS tap. The probe settled it for now: a two-pass technique with a
-  `RenderTarget` made gamescope_reshade log `Using technique` and then take the whole session down before it
-  began compiling the first pass, so the per-tap route is the one that is known to be available. FXAA's
-  early-out makes the average cost far below the worst case; the 3.11 'console' variant has a fixed small
-  footprint. The ~11% texture-throughput figure quoted for the naive version was an estimate from memory.
+- **Anti-aliasing is FXAA, optional, per game, off by default, and every parameter was measured.** MSAA, SSAA,
+  TAA and DLAA need the rasteriser, depth or motion vectors, none of which exist after composition, so only an
+  FXAA-class filter is possible. Judged on scenes drawn at 8x with no AA (the box-reduced image is the ground
+  truth, one sample per pixel is the aliased input): it removes about a third of the error on sloped and curved
+  edges (polygon -47%, circles -30%, angled lines -17%) but does little for text (-12%), so what it buys depends on
+  how much of the picture is slanted geometry. It softens: on content that is *already* anti-aliased it still
+  changes ~4% of pixels, which is why it is per game and not a global default. Choices, with what decided them:
+  subpixel **0.25**, not the stock 0.75 — 0.75 softens 1px lines and text (+33% error on thin features) and
+  0.25 beat it on every axis, though a still image cannot reward the shimmer reduction the subpixel term exists
+  for, so that is a judgement; threshold 0.166 and minimum 0.0312 (the minimum matters on near-black, where
+  0.0312 removed 27.5% of the aliasing error against 24.4% for 0.0625; the relative threshold barely mattered);
+  search distances **1,2,4,8,16,32** because long shallow edges need reach, not density — the same budget spent
+  linearly left the long flat edge at 33.0 against 22.2. The formulation uses exact texel fetches only: FXAA moves
+  perpendicular to the edge, so its final sample is a lerp of two texels and each probe the mean of two, and it
+  does not depend on the sampler's filter mode (the HLSL was transcribed to scalar Python and matched the measured
+  vectorised version on 9000 of 9000 pixels). Average cost is ~5.8 fetches per pixel, p99 ~25, worst 33 — only
+  the edge pixels pay, most exit on the contrast test. Order: before RCAS (AMD requires FSR's input to be
+  anti-aliased) and before mura, whose per-subpixel correction a blur would smear; it switches itself off with
+  Pixel Art mode, since smoothing quantised blocks undoes it. Only RCAS's *centre* tap is anti-aliased; scored
+  against RCAS run on the clean image the hybrid gave 21.05 against 21.54 for anti-aliasing all five taps (and
+  20.97 for sharpening first), at a fraction of the fetches — the claim that mixed estimators hurt, true for the
+  Pixel Art average, does not hold here because FXAA moves a pixel at most halfway to one neighbour. A
+  second pass with a render target would have been the other route, but the probe showed gamescope_reshade
+  takes the session down on it (see ROADMAP.md).
 
 - **Dithering uses Interleaved Gradient Noise, not the Box-Muller gaussian it was written with.** The gaussian
   is unbounded, so its tails landed as bright specks on flat dark areas, and white noise puts its energy exactly

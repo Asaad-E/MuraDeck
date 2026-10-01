@@ -40,6 +40,9 @@ export function Content() {
   const [pixelateBlockSize, setPixelateBlockSize] = useState(4);
   const [perAppPixelate, setPerAppPixelate] = useState(false);
 
+  const [fxaaEnabled, setFxaaEnabled] = useState(false);
+  const [perAppFxaa, setPerAppFxaa] = useState(false);
+
   const [muraResponse, setMuraResponse] = useState(1.0);
   const [muraStrength, setMuraStrength] = useState(1.0);
   const [lumaOnly, setLumaOnly] = useState(false);
@@ -164,6 +167,22 @@ export function Content() {
         ]);
         setPixelateEnabled(pVal);
         setPixelateBlockSize(pSize);
+      } catch { }
+    }
+
+    // per-app or global anti-aliasing
+    if (currentApp?.appid) {
+      try {
+        const [fEn, fVal] = await Promise.all([
+          call<[number], boolean>("get_fxaa_perapp_enabled", currentApp.appid),
+          call<[number], boolean>("get_fxaa", currentApp.appid),
+        ]);
+        setPerAppFxaa(fEn);
+        setFxaaEnabled(fVal);
+      } catch { }
+    } else {
+      try {
+        setFxaaEnabled(await call<[], boolean>("get_fxaa"));
       } catch { }
     }
   }, [currentApp?.appid, displayMode]);
@@ -599,6 +618,66 @@ export function Content() {
                   perAppPixelate
                 );
               }}
+            />
+          </PanelSectionRow>
+        </EffectInfo>
+      </PanelSection>
+
+      <PanelSection title="Anti-Aliasing">
+        <PanelSectionRow>
+          <ToggleField
+            label="Per‑game Anti-Aliasing"
+            checked={perAppFxaa}
+            disabled={!currentApp}
+            onChange={async (v) => {
+              if (!currentApp) return;
+              await call<[number, boolean], void>(
+                "toggle_fxaa_perapp",
+                currentApp.appid,
+                v
+              );
+              refreshAll();
+            }}
+            description={
+              perAppFxaa && currentApp ? (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "8px",
+                    color: "rgba(255,255,255,0.6)",
+                  }}
+                >
+                  {currentApp.icon && (
+                    <img
+                      src={currentApp.icon}
+                      alt=""
+                      style={{ width: 18, height: 18, borderRadius: 3 }}
+                    />
+                  )}
+                  <span>{currentApp.name}</span>
+                </div>
+              ) : undefined
+            }
+          />
+        </PanelSectionRow>
+
+        <EffectInfo effectKey="fxaa">
+          <PanelSectionRow>
+            <ToggleField
+              label={Desc.fxaa.title}
+              checked={fxaaEnabled}
+              disabled={!currentApp && perAppFxaa}
+              onChange={async (v) => {
+                setFxaaEnabled(v);
+                await call<[boolean, number | null, boolean], void>(
+                  "set_fxaa",
+                  v,
+                  currentApp?.appid ?? null,
+                  perAppFxaa
+                );
+              }}
+              icon={<Desc.fxaa.icon />}
             />
           </PanelSectionRow>
         </EffectInfo>
