@@ -104,7 +104,9 @@
   *before* mura, whose per-subpixel correction a blur would smear. Pixel Art mode should switch it off, since
   smoothing quantised blocks undoes the mode. A per-game toggle off by default answers the objection about
   softening Steam's UI. What blocks it is feeding RCAS the AA'd result: that needs either a second pass with a
-  render target (unverified on gamescope's reshade, hence the probe) or recomputing FXAA per RCAS tap. FXAA's
+  render target or recomputing FXAA per RCAS tap. The probe settled it for now: a two-pass technique with a
+  `RenderTarget` made gamescope_reshade log `Using technique` and then take the whole session down before it
+  began compiling the first pass, so the per-tap route is the one that is known to be available. FXAA's
   early-out makes the average cost far below the worst case; the 3.11 'console' variant has a fixed small
   footprint. The ~11% texture-throughput figure quoted for the naive version was an estimate from memory.
 
