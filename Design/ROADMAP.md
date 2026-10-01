@@ -37,6 +37,12 @@ From README's "Known Limitations" and FAQ — treat these as the open backlog, n
   tuned. Adding a new HDR profile means: a new `.fx` shader variant, a new `BRIGHTNESS_TABLE_*`, a new branch
   in `_set_profile`/`brightness_state`/`_patch_fx`'s `is_*` checks, and validation against real hardware —
   this is shader/color-science work, not just wiring.
+- **Anti-aliasing (FXAA-class) is the next feature, gated on the multi-pass probe.** Run the probe from the
+  Status tab on the Deck: red/blue swapped with a magenta cast means two-pass works and AA can feed RCAS cleanly;
+  unchanged or black means single-pass only and the per-tap design is needed. See DECISIONS.md for the ordering.
+- **Debanding** is a candidate: a different problem from AA (colour quantisation steps in smooth gradients, the
+  README's near-black banding complaint). The IGN dither already breaks steps at 1 LSB; debanding would take the
+  larger ones. Single-pass and cheap.
 - **CAS `descriptor.ts` entries (`cas`, `cas_slider`) are unused** — `content.tsx`'s AMD Fidelity FX section
   hardcodes its own labels instead of pulling from `Desc.cas`/`Desc.cas_slider`. Minor inconsistency to clean up
   if touching that section.

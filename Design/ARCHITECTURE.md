@@ -9,7 +9,7 @@
   by `_migration()` on first load / reinstall.
 - **FX patching** (`_patch_fx`): mura shaders are plain-text `.fx` ReShade files. The plugin does NOT template
   them — it line-scans for known `uniform float ...` blocks (`CAS_Enabled`, `Sharpness`, `Pixelate_Enabled`,
-  `Pixelate_BlockSize`, `MuraResponse`, `MuraMapScale`, `MuraFadeNearWhite`, `Intensity`, `RGB_Lift`,
+  `Pixelate_BlockSize`, `RcasLumaOnly`, `MuraResponse`, `MuraStrength`, `MuraMapScale`, `MuraFadeNearWhite`, `Intensity`, `RGB_Lift`,
   `RGB_Gamma`) and rewrites each block's default value in place. See [DECISIONS.md](DECISIONS.md) for why.
   The scan keys off the exact declaration text and stops at the first line containing `>`, so a `ui_tooltip`
   must never contain one. `scratchpad/patch_harness.py`-style stubbing of `decky`/`settings` lets this be
@@ -29,6 +29,12 @@
 - **Mura response** (`set_mura_response`/`get_mura_response`, setting `mura_response`): global, not per-app or
   per-display — how strongly the correction follows each pixel's own level instead of being a flat offset. See
   [DECISIONS.md](DECISIONS.md) for why.
+- **Mura strength / luma-only sharpening** (`set_mura_strength`, `set_rcas_luma_only`, settings `mura_strength`,
+  `rcas_luma_only`): both global. Strength is its own uniform because the brightness table rewrites
+  `MuraMapScale` itself and would overwrite a slider writing there.
+- **Multi-pass probe** (`test_multipass`, `MuraDeck_PassTest.fx`, button in the Status tab): a diagnostic, not a
+  feature. Listed in `OPTIONAL_SHADER_FILES` rather than `MURA_SHADER_FILES` on purpose, since
+  `check_shader_status` requires every file in the latter and would report a working install as missing it.
 - **Per-app state**: CAS enabled/sharpness, Pixel Art mode/block size, and mura profile can be global or
   per-`appid` (`*_perapp_enabled` flag + `*_app_{appid}_{internal,external}` keyed settings, same shape for all
   three). `on_focus_change` / `on_game_state_update` (driven by frontend Steam event listeners) restore per-app

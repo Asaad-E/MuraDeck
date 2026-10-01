@@ -88,6 +88,26 @@
   is what AMD's `FsrRcasInputF` hook is for; measured sharpening is now consistent (~5%)
   from 0.5 to 8.0 instead of dying at 1.0.
 
+- **Sharpening can be luminance-only.** RCAS runs per channel, so it also sharpens the colour noise in red,
+  green and blue, and on this panel red and green are corrected separately so their residual is uncorrelated.
+  Adding only the brightness change to every channel keeps the edge and drops the rest. Measured: chroma noise
+  on a flat field goes 9.5 -> 23.6 under per-channel RCAS (2.5x) and stays 9.5 luma-only; on a red-to-teal edge
+  per-channel adds a 37/1000 hue shift, luma-only none; luminance edge contrast is identical. Off by default.
+
+- **Mura strength is a multiplier on a separate uniform, not a slider on `MuraMapScale`.** The brightness table
+  rewrites `MuraMapScale` on every brightness change, so writing the slider there would be overwritten the next
+  time the brightness moved. 0.5x-1.5x on top of the adapted value keeps adaptation intact.
+
+- **No anti-aliasing yet, and the order is fixed if it comes.** MSAA/SSAA/TAA/DLAA need the rasteriser, depth or
+  motion vectors, none of which exist after composition, so only FXAA-class filters are possible. It would run
+  *before* RCAS (AMD requires FSR's input to be anti-aliased; sharpening first emphasises the stair-steps) and
+  *before* mura, whose per-subpixel correction a blur would smear. Pixel Art mode should switch it off, since
+  smoothing quantised blocks undoes the mode. A per-game toggle off by default answers the objection about
+  softening Steam's UI. What blocks it is feeding RCAS the AA'd result: that needs either a second pass with a
+  render target (unverified on gamescope's reshade, hence the probe) or recomputing FXAA per RCAS tap. FXAA's
+  early-out makes the average cost far below the worst case; the 3.11 'console' variant has a fixed small
+  footprint. The ~11% texture-throughput figure quoted for the naive version was an estimate from memory.
+
 - **Dithering uses Interleaved Gradient Noise, not the Box-Muller gaussian it was written with.** The gaussian
   is unbounded, so its tails landed as bright specks on flat dark areas, and white noise puts its energy exactly
   where the eye is most sensitive; it was also `Timer`-driven, and the resulting shimmer is what made it
