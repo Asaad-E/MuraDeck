@@ -34,8 +34,12 @@
   `MuraMapScale` itself and would overwrite a slider writing there.
 - **Anti-aliasing (FXAA)** (`set_fxaa`/`get_fxaa`, `toggle_fxaa_perapp`, plus the `*_global_fxaa`/`*_app_fxaa` pairs):
   same global / per-game shape as Pixel Art, off by default. `FXAA_Enabled` is patched into the three profile
-  shaders (not `CAS.fx`). Its state is loaded wherever a game's other per-game settings are — focus change, game
-  start, game close, monitor change — which is also where the Pixel Art state had been missing.
+  shaders (not `CAS.fx`). Pixel Art and FXAA state is loaded by `_load_visual_state(appid)` at every place a game's
+  settings change — focus change, game start, game close, and a display change, which reloads even with no focused
+  app because the global keys are per display. Settings setters re-apply the live effect through
+  `_reapply_effect()`, which does nothing while the plugin is switched off (CAS-only mode counts as running), so
+  moving a slider cannot turn the effect back on behind the toggle. In CAS-only mode (external display with
+  Respect External Monitor on) `CAS.fx` runs, which has no FXAA, Pixel Art or debanding: those are inert there.
 - **Debanding** (`set_deband`/`get_deband`, setting `deband_enabled`): global, SDR shader only, off by default;
   `Deband_Enabled` exists only in `MuraDeck_SDR.fx`, so the patcher skips it silently in the other profiles.
 - **Per-app state**: CAS enabled/sharpness, Pixel Art mode/block size, and mura profile can be global or

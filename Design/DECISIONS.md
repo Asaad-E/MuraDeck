@@ -89,8 +89,9 @@
   from 0.5 to 8.0 instead of dying at 1.0.
 
 - **Sharpening can be luminance-only.** RCAS runs per channel, so it also sharpens the colour noise in red,
-  green and blue, and on this panel red and green are corrected separately so their residual is uncorrelated.
-  Adding only the brightness change to every channel keeps the edge and drops the rest. Measured: chroma noise
+  green and blue — noise that is in the game image itself, since RCAS runs before the mura correction in every
+  profile (an earlier version of this note blamed the panel's separately corrected red and green, which is
+  backwards). Adding only the brightness change to every channel keeps the edge and drops the rest. Measured: chroma noise
   on a flat field goes 9.5 -> 23.6 under per-channel RCAS (2.5x) and stays 9.5 luma-only; on a red-to-teal edge
   per-channel adds a 37/1000 hue shift, luma-only none; luminance edge contrast is identical. Off by default.
 
@@ -113,12 +114,16 @@
   linearly left the long flat edge at 33.0 against 22.2. The formulation uses exact texel fetches only: FXAA moves
   perpendicular to the edge, so its final sample is a lerp of two texels and each probe the mean of two, and it
   does not depend on the sampler's filter mode (the HLSL was transcribed to scalar Python and matched the measured
-  vectorised version on 9000 of 9000 pixels). Average cost is ~5.8 fetches per pixel, p99 ~25, worst 33 — only
-  the edge pixels pay, most exit on the contrast test. Order: before RCAS (AMD requires FSR's input to be
+  vectorised version on 9000 of 9000 pixels when both are evaluated in float64; in float32 about 0.2% of the
+  modified pixels differ, all exact ties at a `>=` comparison resolved the other way, so a tie can flip a
+  decision). Cost as written in the HLSL, which re-fetches the end probe after the search: mean ~6.0 fetches per
+  pixel, p99 37, worst 37 — only the ~4.5% of pixels on an edge pay, the rest exit on the contrast test. Order: before RCAS (AMD requires FSR's input to be
   anti-aliased) and before mura, whose per-subpixel correction a blur would smear; it switches itself off with
   Pixel Art mode, since smoothing quantised blocks undoes it. Only RCAS's *centre* tap is anti-aliased; scored
-  against RCAS run on the clean image the hybrid gave 21.05 against 21.54 for anti-aliasing all five taps (and
-  20.97 for sharpening first), at a fraction of the fetches — the claim that mixed estimators hurt, true for the
+  against RCAS run on the clean image the hybrid gave 21.75 against 22.03 for anti-aliasing all five taps (and
+  21.52 for sharpening first) with the shipped parameters — the ordering holds but the margin is small, and an
+  earlier 21.05 / 21.54 pair was measured with a different search schedule and minimum threshold — at a
+  fraction of the fetches — the claim that mixed estimators hurt, true for the
   Pixel Art average, does not hold here because FXAA moves a pixel at most halfway to one neighbour. A
   second pass with a render target would have been the other route, but the probe showed gamescope_reshade
   takes the session down on it (see ROADMAP.md).
@@ -131,10 +136,11 @@
   so LGG and mura cannot rescale it. Design: four rings of two opposite taps at radii 2/4/8/16, angle hashed per
   pixel and turned by the golden angle each ring, each tap counted only if within 2.5/255 of the centre in every
   channel. Radii 2/4/8/16 over 4/8/16/32 because larger reach did better on a plain ramp (0.385 vs 0.418) and
-  worse on curved gradients. Honest result, in relative linear luminance: dark ramp 0.890 -> ~0.41% (-54%,
-  stable across two runs); a mid-tone ramp and a curved vignette moved within the noise of a metric that
-  measures tenths of a percent (an earlier run's -31% on the mid ramp did not reproduce). It adds about a level
-  of fine noise (1.56 -> ~2.4%). Order: shipped as RCAS then deband with the RCAS output as the centre and raw
+  worse on curved gradients. Honest result: a shallow dark ramp loses ~55% of its banding (0.126 -> 0.057 in 8-bit levels, 0.890 -> ~0.41%
+  in relative luminance), stable across every replication. A mid-tone ramp and a curved vignette moved by a few
+  percent, and two independent replications disagreed on the sign (0.048 -> 0.046 in one, 0.048 -> 0.071 in the
+  other), so there is no demonstrated benefit outside dark ramps and it may be slightly worse. The noise it adds
+  is consistent: about +0.1 level RMS on every scene. Order: shipped as RCAS then deband with the RCAS output as the centre and raw
   taps, which measured the same as running with RCAS off and never worse; deband-then-RCAS was better on the dark
   ramp (0.266) and worse on the vignette (0.558 vs 0.483), so it was not preferred. SDR only: HDR10 PQ and scRGB
   have the range it needs and a 1/255 dither would be gratuitous noise there. Off by default; 8 extra fetches per

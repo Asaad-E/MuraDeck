@@ -67,17 +67,17 @@ export const Desc: Record<EffectKey, EffectMeta> = {
   },
   pixelate: {
     title: "Pixel Art Mode",
-    desc: "Recreates a crisp, blocky pixel-art look on top of the (always LINEAR) system scaling — for fullscreen pixel-art games and old visual novels where Linear looks blurry and Nearest/Pixel isn't usable with reshade active.",
+    desc: "Recreates a crisp, blocky pixel-art look on top of the (always LINEAR) system scaling — for fullscreen pixel-art games and old visual novels where Linear looks blurry and Nearest/Pixel isn't usable with reshade active. Not applied on an external display while Respect External Monitor is on.",
     icon: FaThLarge,
   },
   fxaa: {
     title: "Anti-Aliasing (FXAA)",
-    desc: "Smooths jagged edges on games that have no anti-aliasing of their own. On a game that already has it, this only softens the picture, and it also softens 1px lines and small text a little. Only edges are touched, and it is switched off while Pixel Art mode is on. Costs a few extra texture reads on edge pixels, so it is off by default.",
+    desc: "Smooths jagged edges on games that have no anti-aliasing of their own. On a game that already has it, this only softens the picture, and it also softens 1px lines and small text a little. Only edges are touched, and it is switched off while Pixel Art mode is on. Costs a few extra texture reads on edge pixels, so it is off by default. Not applied on an external display while Respect External Monitor is on.",
     icon: FaDrawPolygon,
   },
   deband: {
     title: "Debanding",
-    desc: "Smooths the visible steps in gradients, most noticeable as bands in dark fades on an OLED. It averages across each step to recover the gradient and then dithers it back into 8 bits, so it adds a very fine noise. Works on SDR games only; HDR has the range it needs. It helps most on shallow dark fades, where it roughly halves the banding; elsewhere the effect is small. It reads eight extra pixels per pixel, so it is off by default.",
+    desc: "Smooths the visible steps in gradients, most noticeable as bands in dark fades on an OLED. It averages across each step to recover the gradient and then dithers it back into 8 bits, so it adds a very fine noise. Works on SDR games only; HDR has the range it needs. It helps on shallow dark fades, where it roughly halves the banding; elsewhere there is no demonstrated benefit, and it always adds a little fine noise. It reads eight extra pixels per pixel, so it is off by default. Not applied on an external display while Respect External Monitor is on.",
     icon: FaBarcode,
   },
   pixelate_slider: {
