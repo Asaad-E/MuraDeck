@@ -380,7 +380,9 @@ float3 ApplyFXAA(float2 uv, float3 cM, float3 cN, float3 cW, float3 cE, float3 c
         endSel = endN;
         dstMin = dstN;
     }
-    bool good = (endSel < 0.0) != mltz;
+    bool good = endSel < 0.0;
+    if (mltz)
+        good = !good;
     float off = 0.5 - dstMin / (dstN + dstP);
     if (!good)
         off = 0.0;
@@ -407,12 +409,21 @@ float3 ApplyRCAS(float2 texcoord)
 
     // Only the centre is anti-aliased; RCAS's four neighbours stay as they were. Judged against
     // RCAS run on a perfectly anti-aliased image, that scores the same as anti-aliasing all five
-    // taps (21.05 against 21.54, lower is better) for a fraction of the fetches.
+    // taps (21.75 against 22.03 with the shipped parameters, lower is better) for a fraction of
+    // the fetches.
     if (doAA)
         e = ApplyFXAA(texcoord, e, b, d, f, h);
 
     if (!doSharpen)
+    {
+        // A pixel FXAA left alone must come back exactly as it went in. In scRGB the encode and
+        // decode round trip clamps (negatives to zero, the top just under one), so converting
+        // every pixel back would alter flat areas that have nothing to do with an edge.
+        float3 changed = abs(e - AAEnc(eRaw));
+        if (max(max(changed.r, changed.g), changed.b) <= 0.0)
+            return eRaw;
         return AADec(e);
+    }
 
     float bL = RcasLuma(b), dL = RcasLuma(d), eL = RcasLuma(e);
     float fL = RcasLuma(f), hL = RcasLuma(h);
@@ -438,13 +449,12 @@ float3 ApplyRCAS(float2 texcoord)
     float lobe = max(-RCAS_LIMIT, min(max(max(lobeRGB.r, lobeRGB.g), lobeRGB.b), 0.0));
     lobe *= RcasSharpness() * nz;
 
-        float3 outColor = (lobe * (b + d + f + h) + e) / (4.0 * lobe + 1.0);
+    float3 outColor = (lobe * (b + d + f + h) + e) / (4.0 * lobe + 1.0);
 
-    // Per-channel RCAS sharpens red, green and blue independently, so it also sharpens
-    // whatever chroma noise sits in them - and on this panel red and green have just been
-    // corrected separately, so their residual error is uncorrelated. Carrying only the
-    // brightness change across (the same delta added to every channel) keeps the edge
-    // contrast and leaves hue untouched.
+    // Per-channel RCAS sharpens red, green and blue independently, so it also sharpens whatever
+    // colour noise sits in them, and can put a thin colour fringe on a coloured edge. Carrying
+    // only the brightness change across (the same delta added to every channel) keeps the edge
+    // contrast and leaves hue alone, until a channel clips at a saturated edge.
     if (RcasLumaOnly > 0.0)
         outColor = e + dot(outColor - e, float3(0.2126, 0.7152, 0.0722));
     return saturate(outColor);

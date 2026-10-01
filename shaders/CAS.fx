@@ -125,13 +125,12 @@ float3 CASPass(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Targe
     float lobe = max(-RCAS_LIMIT, min(max(max(lobeRGB.r, lobeRGB.g), lobeRGB.b), 0.0));
     lobe *= RcasSharpness() * nz;
 
-        float3 outColor = (lobe * (b + d + f + h) + e) / (4.0 * lobe + 1.0);
+    float3 outColor = (lobe * (b + d + f + h) + e) / (4.0 * lobe + 1.0);
 
-    // Per-channel RCAS sharpens red, green and blue independently, so it also sharpens
-    // whatever chroma noise sits in them - and on this panel red and green have just been
-    // corrected separately, so their residual error is uncorrelated. Carrying only the
-    // brightness change across (the same delta added to every channel) keeps the edge
-    // contrast and leaves hue untouched.
+    // Per-channel RCAS sharpens red, green and blue independently, so it also sharpens whatever
+    // colour noise sits in them, and can put a thin colour fringe on a coloured edge. Carrying
+    // only the brightness change across (the same delta added to every channel) keeps the edge
+    // contrast and leaves hue alone, until a channel clips at a saturated edge.
     if (RcasLumaOnly > 0.0)
         outColor = e + dot(outColor - e, float3(0.2126, 0.7152, 0.0722));
     return saturate(outColor);
