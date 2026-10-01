@@ -289,6 +289,8 @@ class Plugin:
             sharp = await self.get_sharpness(appid)
             self._current_cas = cas
             self._current_sharpness = sharp
+            self._pixelate_enabled = await self.get_pixelate(appid)
+            self._pixelate_block_size = await self.get_pixelate_block_size(appid)
             await self._patch_fx(self.current_effect)
             await self._set_effect(self.current_effect)
         else:
@@ -317,6 +319,8 @@ class Plugin:
             cas = await self.get_cas(appid)
             self._current_sharpness = sharp
             self._current_cas = cas
+            self._pixelate_enabled = await self.get_pixelate(appid)
+            self._pixelate_block_size = await self.get_pixelate_block_size(appid)
 
             if self._use_cas_only:
                 decky.logger.info(f"[MuraDeck] [CAS-only] Applying sharp={sharp}, cas={cas}")
@@ -335,6 +339,8 @@ class Plugin:
             self.current_appid = None
             self._current_sharpness = 0.0
             self._current_cas = False
+            self._pixelate_enabled = await self.get_global_pixelate()
+            self._pixelate_block_size = await self.get_global_pixelate_block_size()
 
             await self._set_profile("SDR")
             await self._patch_fx(self.current_effect)
@@ -458,6 +464,8 @@ class Plugin:
                     if appid:
                         self._current_cas = await self.get_cas(appid)
                         self._current_sharpness = await self.get_sharpness(appid)
+                        self._pixelate_enabled = await self.get_pixelate(appid)
+                        self._pixelate_block_size = await self.get_pixelate_block_size(appid)
                         decky.logger.info(f"[Monitor] [External] Refreshed CAS={self._current_cas}, Sharp={self._current_sharpness}")
 
                     if self._monitor_watch_enabled:
@@ -481,6 +489,8 @@ class Plugin:
                     if appid:
                         self._current_cas = await self.get_cas(appid)
                         self._current_sharpness = await self.get_sharpness(appid)
+                        self._pixelate_enabled = await self.get_pixelate(appid)
+                        self._pixelate_block_size = await self.get_pixelate_block_size(appid)
                         decky.logger.info(f"[Monitor] [Internal] Refreshed CAS={self._current_cas}, Sharp={self._current_sharpness}")
 
                     if self._monitor_watch_enabled:
