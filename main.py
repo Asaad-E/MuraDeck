@@ -32,6 +32,12 @@ MURA_SHADER_FILES = [
     "ReShadeUI.fxh",
 ]
 
+# Diagnostic only. Deliberately kept out of MURA_SHADER_FILES: check_shader_status requires
+# every file in that list, so listing this one would flag a working install as "missing"
+# until the next reinstall.
+FX_PASSTEST = "MuraDeck_PassTest.fx"
+OPTIONAL_SHADER_FILES = [FX_PASSTEST]
+
 MURA_TEXTURE_FILES = [
     "green.png",
     "red.png",
@@ -132,6 +138,7 @@ class Plugin:
         self._mura_response: float = settings.getSetting("mura_response", 1.0)
         self._mura_strength: float = settings.getSetting("mura_strength", 1.0)
         self._rcas_luma_only: bool = settings.getSetting("rcas_luma_only", False)
+        self._multipass_test_active = False
 
     async def _main(self):
         decky.logger.info("[MuraDeck] Started")
@@ -631,6 +638,38 @@ class Plugin:
 
     async def get_rcas_luma_only(self) -> bool:
         return self._rcas_luma_only
+
+    # Probe whether gamescope's reshade honours a second pass reading a render target. Visual
+    # result only - see the header of MuraDeck_PassTest.fx for how to read it. Turning it off
+    # restores whatever was running before.
+    async def test_multipass(self, enable: bool) -> bool:
+        if enable:
+            src = os.path.join(PLUGIN_SHADERS_DIR, FX_PASSTEST)
+            dst = os.path.join(SHADER_DIR, FX_PASSTEST)
+            temp = dst.replace(".fx", "_temp.fx")
+            try:
+                os.makedirs(SHADER_DIR, exist_ok=True)
+                shutil.copy(src, dst)
+                shutil.copy(src, temp)
+            except Exception as e:
+                decky.logger.error(f"[MuraDeck] [PassTest] Could not stage test shader: {e}")
+                return False
+            self._multipass_test_active = True
+            decky.logger.info("[MuraDeck] [PassTest] Applying two-pass probe")
+            await self._set_effect(FX_PASSTEST)
+            return True
+
+        self._multipass_test_active = False
+        decky.logger.info("[MuraDeck] [PassTest] Restoring previous effect")
+        if self._enabled:
+            await self._patch_fx(self.current_effect)
+            await self._set_effect(self.current_effect)
+        else:
+            await self._clear_effect()
+        return True
+
+    async def get_multipass_test(self) -> bool:
+        return self._multipass_test_active
     
     # Global Sharpness
     async def set_global_sharpness(self, value: float):
@@ -1248,7 +1287,8 @@ class Plugin:
             "MuraDeck_SDR_temp.fx",
             "MuraDeck_HDR10PQ_temp.fx",
             "MuraDeck_HDRscRGB_temp.fx",
-        ]
+            "MuraDeck_PassTest_temp.fx",
+        ] + OPTIONAL_SHADER_FILES
         for fn in all_shaders:
             try:
                 os.remove(os.path.join(SHADER_DIR, fn))
@@ -1355,6 +1395,12 @@ class Plugin:
                 decky.logger.info(f"[MuraDeck] Installed shader {fn}")
             except Exception as e:
                 decky.logger.error(f"[MuraDeck] Install shader {fn} error: {e}")
+
+        for fn in OPTIONAL_SHADER_FILES:
+            try:
+                shutil.copy(os.path.join(PLUGIN_SHADERS_DIR, fn), os.path.join(SHADER_DIR, fn))
+            except Exception as e:
+                decky.logger.warning(f"[MuraDeck] Optional shader {fn} not installed: {e}")
 
         # Welcome flag
         seen = settings.getSetting("has_seen_welcome", None)
