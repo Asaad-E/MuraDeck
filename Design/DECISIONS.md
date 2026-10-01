@@ -119,11 +119,10 @@
   `ReShade::BackBuffer`/`ReShade::ScreenSize` — the *already gamescope-scaled* frame — so by the time any
   ReShade effect runs, the low-res source pixels are gone; nothing in reshade can reconstruct true crisp nearest
   scaling from that. (2) Setting gamescope's native Pixel filter ourselves (mirroring how `_set_effect` writes
-  `GAMESCOPE_RESHADE_EFFECT` via `xprop`) wouldn't help either — root-caused via `journalctl` to a bug in
-  gamescope's own reshade technique compiler (`gamescope_reshade`), which can fail to resolve its internal
-  `V__ReShade__BackBufferTex`/`DepthBufferTex` bindings and then either crash the session or spin retrying (see
-  ROADMAP.md for the log evidence); this triggers from any normal effect (re)application while Pixel is active,
-  so setting the filter through a different code path hits the identical upstream bug. Given that, "Pixel Art
+  `GAMESCOPE_RESHADE_EFFECT` via `xprop`) wouldn't help either — the crash with Pixel active reproduces through Steam's own
+  settings UI, so forcing the same filter through a different code path would hit it too. Its mechanism is
+  not established: the `V__ReShade__BackBufferTex`/`DepthBufferTex` lines first suspected turned out to appear
+  on every ordinary effect apply in healthy sessions (see ROADMAP.md), so they are noise, not the cause. Given that, "Pixel Art
   mode" (`Pixelate_Enabled`/`Pixelate_BlockSize` in the three profile `.fx` files, backend methods
   `set_pixelate`/`set_pixelate_block_size` etc. in `main.py`) instead re-quantizes the already-linear-scaled
   backbuffer into user-sized blocks — a deliberate stylized approximation, safe because it never touches the

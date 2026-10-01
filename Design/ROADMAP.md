@@ -4,17 +4,15 @@ From README's "Known Limitations" and FAQ — treat these as the open backlog, n
 
 - **FSR/Sharp *and* Pixel scaling filters both break the gamescope session with reshade active** on current
   SteamOS. FSR case tracked upstream at
-  [ValveGamescope#1903](https://github.com/ValveSoftware/gamescope/issues/1903). Pixel case root-caused via
-  `journalctl` 2026-08: while gamescope's built-in reshade compiler (`gamescope_reshade`, distinct from desktop
-  ReShade) (re)compiles a technique, it sometimes fails to resolve its own internal backbuffer bindings —
-  `Couldn't find texture with name: V__ReShade__BackBufferTex` / `V__ReShade__DepthBufferTex` — then either
-  crashes hard (`sddm-helper` reports "Process crashed", `systemd` tears down the whole Gamescope Session target
-  — not just the game) or, in other repros, gets stuck retrying compilation and the system just becomes
-  severely slow instead. Confirmed by the user as reproducible in normal use (not tied to a fresh
-  install/reinstall) for months — any routine effect (re)application (game launch/close, brightness bracket
-  change, profile switch, resume from suspend — anything that calls `_set_effect`/`_patch_fx`) while the system
-  Scaling Filter is Pixel is enough to trigger it. Root cause is a gamescope-internal race/bug in its reshade
-  technique compiler, not anything in MuraDeck's `.fx` sources or Python code. Only `LINEAR` is safe. This also
+  [ValveGamescope#1903](https://github.com/ValveSoftware/gamescope/issues/1903). Pixel case reproduced by the user for months in normal use (not tied to a fresh install): any routine
+  effect (re)application — game launch/close, brightness bracket change, profile switch, resume — while the
+  system Scaling Filter is Pixel either restarts the whole Gamescope Session (`sddm-helper` reports "Process
+  crashed", not just the game) or leaves the system severely slow. **The mechanism is not established.** An
+  earlier version of this note blamed `Couldn't find texture with name: V__ReShade__BackBufferTex` /
+  `DepthBufferTex` in the journal, but a later log (2026-10) shows those same two lines on every ordinary
+  MuraDeck apply across an hour of healthy sessions with no crash, so they are routine noise from
+  `gamescope_reshade`, not the cause. What is known: it needs Pixel/FSR scaling plus reshade active, and it
+  is not something MuraDeck's `.fx` sources or Python code does by themselves. Only `LINEAR` is safe. This also
   means there is no in-plugin path to nearest-neighbor/pixel-perfect scaling for pixel-art games — see
   DECISIONS.md for why a ReShade-side "nearest" shader wouldn't be equivalent even if this bug weren't blocking
   the native filter. Workaround stays "use LINEAR + built-in CAS"; no in-plugin mitigation exists beyond warning
@@ -24,8 +22,8 @@ From README's "Known Limitations" and FAQ — treat these as the open backlog, n
   avoids the crash entirely. Two follow-ups still open: (1) auto-detecting when the system Scaling Filter is set
   to Pixel/FSR and having MuraDeck back off automatically instead of relying on the user never touching that
   setting (needs research into whether the current filter is readable via an `xprop` atom, same class as
-  `GAMESCOPE_FOCUSED_APP`); (2) filing the root-caused `gamescope_reshade` compiler bug upstream with the
-  captured `journalctl` evidence.
+  `GAMESCOPE_FOCUSED_APP`); (2) filing it upstream, but only once the actual failing line is found — the journal lines
+  captured so far do not distinguish a crash from normal operation.
 - **Steam Remote Play breaks under reshade.** Workaround is external (Steam Link/Moonlight, or disabling
   Hardware Decoding + HEVC). Not something the plugin can currently detect or auto-adjust for.
 - **Aspect ratio**: shaders assume 16:xx landscape; other ratios make mura correction look worse since the map
