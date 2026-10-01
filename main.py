@@ -145,6 +145,29 @@ class Plugin:
         if self._enabled:
             self._watch_task = asyncio.create_task(self._log_watcher())
 
+    async def _reapply_effect(self):
+        """Push the current settings into the running effect - but only if one is running.
+
+        A setting changed while the plugin is switched off must be remembered, not applied:
+        applying it would turn the effect back on behind the toggle's back. When the plugin is
+        enabled again, toggle_enabled re-patches from the state the setters already updated.
+        CAS-only mode (an external display) is its own running effect, so it counts.
+        """
+        if not (self._enabled or self._use_cas_only):
+            return
+        await self._patch_fx(self.current_effect)
+        await self._set_effect(self.current_effect)
+
+    async def _load_visual_state(self, appid: int | None):
+        """Load Pixel Art and FXAA for `appid`, or the current display's global values for None.
+
+        The getters are None-safe on purpose: with no focused app there is no per-game override,
+        but the global keys are per display, so a display change still has to reload them.
+        """
+        self._pixelate_enabled = await self.get_pixelate(appid)
+        self._pixelate_block_size = await self.get_pixelate_block_size(appid)
+        self._fxaa_enabled = await self.get_fxaa(appid)
+
     async def toggle_enabled(self, enable: bool):
         decky.logger.info(
             f"[MuraDeck] Toggling plugin to {'enabled' if enable else 'disabled'}"
@@ -292,9 +315,7 @@ class Plugin:
             sharp = await self.get_sharpness(appid)
             self._current_cas = cas
             self._current_sharpness = sharp
-            self._pixelate_enabled = await self.get_pixelate(appid)
-            self._pixelate_block_size = await self.get_pixelate_block_size(appid)
-            self._fxaa_enabled = await self.get_fxaa(appid)
+            await self._load_visual_state(appid)
             await self._patch_fx(self.current_effect)
             await self._set_effect(self.current_effect)
         else:
@@ -323,9 +344,7 @@ class Plugin:
             cas = await self.get_cas(appid)
             self._current_sharpness = sharp
             self._current_cas = cas
-            self._pixelate_enabled = await self.get_pixelate(appid)
-            self._pixelate_block_size = await self.get_pixelate_block_size(appid)
-            self._fxaa_enabled = await self.get_fxaa(appid)
+            await self._load_visual_state(appid)
 
             if self._use_cas_only:
                 decky.logger.info(f"[MuraDeck] [CAS-only] Applying sharp={sharp}, cas={cas}")
@@ -344,9 +363,7 @@ class Plugin:
             self.current_appid = None
             self._current_sharpness = 0.0
             self._current_cas = False
-            self._pixelate_enabled = await self.get_global_pixelate()
-            self._pixelate_block_size = await self.get_global_pixelate_block_size()
-            self._fxaa_enabled = await self.get_global_fxaa()
+            await self._load_visual_state(None)
 
             await self._set_profile("SDR")
             await self._patch_fx(self.current_effect)
@@ -470,10 +487,9 @@ class Plugin:
                     if appid:
                         self._current_cas = await self.get_cas(appid)
                         self._current_sharpness = await self.get_sharpness(appid)
-                        self._pixelate_enabled = await self.get_pixelate(appid)
-                        self._pixelate_block_size = await self.get_pixelate_block_size(appid)
-                        self._fxaa_enabled = await self.get_fxaa(appid)
                         decky.logger.info(f"[Monitor] [External] Refreshed CAS={self._current_cas}, Sharp={self._current_sharpness}")
+
+                    await self._load_visual_state(appid)
 
                     if self._monitor_watch_enabled:
                         decky.logger.info("[Monitor] External + Watch ON → CAS-only mode")
@@ -496,10 +512,9 @@ class Plugin:
                     if appid:
                         self._current_cas = await self.get_cas(appid)
                         self._current_sharpness = await self.get_sharpness(appid)
-                        self._pixelate_enabled = await self.get_pixelate(appid)
-                        self._pixelate_block_size = await self.get_pixelate_block_size(appid)
-                        self._fxaa_enabled = await self.get_fxaa(appid)
                         decky.logger.info(f"[Monitor] [Internal] Refreshed CAS={self._current_cas}, Sharp={self._current_sharpness}")
+
+                    await self._load_visual_state(appid)
 
                     if self._monitor_watch_enabled:
                         decky.logger.info("[Monitor] External disconnected → restoring MuraDeck")
@@ -589,8 +604,7 @@ class Plugin:
         settings.commit()
         self._grain_enabled = enable
         decky.logger.info(f"[MuraDeck] Grain={'ON' if enable else 'OFF'} in {self.profile}")
-        await self._patch_fx(self.current_effect)
-        await self._set_effect(self.current_effect)
+        await self._reapply_effect()
 
     async def get_grain(self) -> bool:
         return self._grain_enabled
@@ -605,8 +619,7 @@ class Plugin:
         settings.commit()
         self._lgg_enabled = enable
         decky.logger.info(f"[MuraDeck] LGG={'ON' if enable else 'OFF'} in {self.profile}")
-        await self._patch_fx(self.current_effect)
-        await self._set_effect(self.current_effect)
+        await self._reapply_effect()
 
     async def get_lgg(self) -> bool:
         return self._lgg_enabled
@@ -618,8 +631,7 @@ class Plugin:
         settings.commit()
         self._mura_response = value
         decky.logger.info(f"[MuraDeck] Mura Response = {value}")
-        await self._patch_fx(self.current_effect)
-        await self._set_effect(self.current_effect)
+        await self._reapply_effect()
 
     async def get_mura_response(self) -> float:
         return self._mura_response
@@ -632,8 +644,7 @@ class Plugin:
         settings.commit()
         self._mura_strength = value
         decky.logger.info(f"[MuraDeck] Mura Strength = {value}")
-        await self._patch_fx(self.current_effect)
-        await self._set_effect(self.current_effect)
+        await self._reapply_effect()
 
     async def get_mura_strength(self) -> float:
         return self._mura_strength
@@ -644,8 +655,7 @@ class Plugin:
         settings.commit()
         self._rcas_luma_only = enable
         decky.logger.info(f"[MuraDeck] RCAS luma-only = {enable}")
-        await self._patch_fx(self.current_effect)
-        await self._set_effect(self.current_effect)
+        await self._reapply_effect()
 
     async def get_rcas_luma_only(self) -> bool:
         return self._rcas_luma_only
@@ -656,8 +666,7 @@ class Plugin:
         settings.commit()
         self._deband_enabled = enable
         decky.logger.info(f"[MuraDeck] Deband = {enable}")
-        await self._patch_fx(self.current_effect)
-        await self._set_effect(self.current_effect)
+        await self._reapply_effect()
 
     async def get_deband(self) -> bool:
         return self._deband_enabled
@@ -758,8 +767,7 @@ class Plugin:
 
         self._current_cas = value
 
-        await self._patch_fx(self.current_effect)
-        await self._set_effect(self.current_effect)
+        await self._reapply_effect()
 
     async def get_cas(self, appid: int | None = None) -> bool:
         if appid is not None and await self.get_cas_perapp_enabled(appid):
@@ -774,8 +782,7 @@ class Plugin:
 
         self._current_cas = val
 
-        await self._patch_fx(self.current_effect)
-        await self._set_effect(self.current_effect)
+        await self._reapply_effect()
     
     # Sharpness
     async def set_sharpness(self, value: float, appid: int | None, per_app: bool):
@@ -785,8 +792,7 @@ class Plugin:
             await self.set_global_sharpness(value)
 
         self._current_sharpness = value
-        await self._patch_fx(self.current_effect)
-        await self._set_effect(self.current_effect)
+        await self._reapply_effect()
 
     async def get_sharpness(self, appid: int | None = None) -> float:
         if appid is not None and await self.get_per_app_enabled(appid):
@@ -801,8 +807,7 @@ class Plugin:
         value = await self.get_sharpness(appid)
 
         self._current_sharpness = value
-        await self._patch_fx(self.current_effect)
-        await self._set_effect(self.current_effect)
+        await self._reapply_effect()
 
     async def get_sharpness_perapp_enabled(self, appid: int) -> bool:
         return await self.get_per_app_enabled(appid)
@@ -858,8 +863,7 @@ class Plugin:
             await self.set_global_pixelate(value)
 
         self._pixelate_enabled = value
-        await self._patch_fx(self.current_effect)
-        await self._set_effect(self.current_effect)
+        await self._reapply_effect()
 
     async def get_pixelate(self, appid: int | None = None) -> bool:
         if appid is not None and await self.get_pixelate_perapp_enabled(appid):
@@ -873,8 +877,7 @@ class Plugin:
         val = await self.get_pixelate(appid)
 
         self._pixelate_enabled = val
-        await self._patch_fx(self.current_effect)
-        await self._set_effect(self.current_effect)
+        await self._reapply_effect()
 
     # Global Pixelate Block Size
     async def set_global_pixelate_block_size(self, value: float):
@@ -919,8 +922,7 @@ class Plugin:
             await self.set_global_pixelate_block_size(value)
 
         self._pixelate_block_size = value
-        await self._patch_fx(self.current_effect)
-        await self._set_effect(self.current_effect)
+        await self._reapply_effect()
 
     async def get_pixelate_block_size(self, appid: int | None = None) -> float:
         if appid is not None and await self.get_pixelate_perapp_enabled(appid):
@@ -980,8 +982,7 @@ class Plugin:
             await self.set_global_fxaa(value)
 
         self._fxaa_enabled = value
-        await self._patch_fx(self.current_effect)
-        await self._set_effect(self.current_effect)
+        await self._reapply_effect()
 
     async def get_fxaa(self, appid: int | None = None) -> bool:
         if appid is not None and await self.get_fxaa_perapp_enabled(appid):
@@ -993,8 +994,7 @@ class Plugin:
     async def toggle_fxaa_perapp(self, appid: int, enable: bool):
         await self.set_fxaa_perapp_enabled(appid, enable)
         self._fxaa_enabled = await self.get_fxaa(appid)
-        await self._patch_fx(self.current_effect)
-        await self._set_effect(self.current_effect)
+        await self._reapply_effect()
 
     async def _patch_fx(
             self, fx_name: str, map_scale: float | None = None,
