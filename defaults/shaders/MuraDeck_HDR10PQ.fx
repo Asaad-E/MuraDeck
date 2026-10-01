@@ -140,6 +140,11 @@ uniform float MuraResponse < __UNIFORM_SLIDER_FLOAT1
     ui_tooltip = "0 treats mura as a fixed offset, 1 scales the correction with each pixel's own level. Higher suits a gain-type panel error and keeps shadows clean.";
 > = 1.0;
 
+uniform float MuraStrength < __UNIFORM_SLIDER_FLOAT1
+    ui_min = 0.5; ui_max = 1.5;
+    ui_label = "Mura Strength";
+    ui_tooltip = "Multiplies the brightness-adapted mura strength. 1 keeps the tuned value.";
+> = 1.0;
 
 texture red_tex < source = "red.png"; > { Width = 1280; Height = 800; Format = RGBA8; };
 texture green_tex < source = "green.png"; > { Width = 1280; Height = 800; Format = RGBA8; };
@@ -366,7 +371,7 @@ float3 MuraDeck(float4 vpos : SV_Position, float2 texcoord : TexCoord) : SV_Targ
         // negative half of the map can't clip away on dark pixels and leave only its
         // positive half behind as a raised, blotchy black.
         float3 mura_offset =
-            float3(red.r - 0.5, green.g - 0.5, 0.0) * MuraMapScale * mura_blend;
+            float3(red.r - 0.5, green.g - 0.5, 0.0) * MuraMapScale * MuraStrength * mura_blend;
         float3 headroom = min(color, 1.0 - color);
         mura_offset = clamp(mura_offset, -headroom, headroom);
 

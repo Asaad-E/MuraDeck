@@ -41,6 +41,7 @@ export function Content() {
   const [perAppPixelate, setPerAppPixelate] = useState(false);
 
   const [muraResponse, setMuraResponse] = useState(1.0);
+  const [muraStrength, setMuraStrength] = useState(1.0);
   const [lumaOnly, setLumaOnly] = useState(false);
 
   const [externalMonitor, setExternalMonitor] = useState<boolean | null>(null);
@@ -108,11 +109,13 @@ export function Content() {
 
     // mura response curve
     try {
-      const [resp, lum] = await Promise.all([
+      const [resp, str, lum] = await Promise.all([
         call<[], number>("get_mura_response"),
+        call<[], number>("get_mura_strength"),
         call<[], boolean>("get_rcas_luma_only"),
       ]);
       setMuraResponse(resp);
+      setMuraStrength(str);
       setLumaOnly(lum);
     } catch { }
 
@@ -355,6 +358,30 @@ export function Content() {
               onChange={async (v: number) => {
                 setMuraResponse(v);
                 await call<[number], void>("set_mura_response", v);
+              }}
+            />
+          </PanelSectionRow>
+        </EffectInfo>
+
+        <EffectInfo effectKey="murastrength">
+          <PanelSectionRow>
+            <SliderField
+              label={Desc.murastrength.title}
+              min={0.5}
+              max={1.5}
+              step={0.05}
+              notchCount={3}
+              notchLabels={[
+                { notchIndex: 0, label: "0.5x" },
+                { notchIndex: 1, label: "1x" },
+                { notchIndex: 2, label: "1.5x" },
+              ]}
+              value={muraStrength}
+              showValue
+              disabled={!welcomePassed || shaderReady === false}
+              onChange={async (v: number) => {
+                setMuraStrength(v);
+                await call<[number], void>("set_mura_strength", v);
               }}
             />
           </PanelSectionRow>

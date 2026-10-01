@@ -130,6 +130,7 @@ class Plugin:
         self._brightness_enabled = settings.getSetting("brightness_enabled", True)
 
         self._mura_response: float = settings.getSetting("mura_response", 1.0)
+        self._mura_strength: float = settings.getSetting("mura_strength", 1.0)
         self._rcas_luma_only: bool = settings.getSetting("rcas_luma_only", False)
 
     async def _main(self):
@@ -605,6 +606,20 @@ class Plugin:
     async def get_mura_response(self) -> float:
         return self._mura_response
 
+    # Multiplier on top of the brightness-adapted MuraMapScale. A separate uniform on purpose:
+    # the brightness table rewrites MuraMapScale itself, so a slider writing to that same
+    # uniform would be overwritten on the next brightness change.
+    async def set_mura_strength(self, value: float):
+        settings.setSetting("mura_strength", value)
+        settings.commit()
+        self._mura_strength = value
+        decky.logger.info(f"[MuraDeck] Mura Strength = {value}")
+        await self._patch_fx(self.current_effect)
+        await self._set_effect(self.current_effect)
+
+    async def get_mura_strength(self) -> float:
+        return self._mura_strength
+
     # Sharpen brightness only. A quality preference rather than a per-game one, so global.
     async def set_rcas_luma_only(self, enable: bool):
         settings.setSetting("rcas_luma_only", enable)
@@ -920,6 +935,7 @@ class Plugin:
         pixelate_enabled = 1.0 if self._pixelate_enabled else 0.0
         pixelate_block_size = self._pixelate_block_size
         mura_response = self._mura_response
+        mura_strength = self._mura_strength
         rcas_luma_only = 1.0 if self._rcas_luma_only else 0.0
 
         with open(path, "r") as f:
@@ -1002,6 +1018,20 @@ class Plugin:
                     '\tui_min = 0.0; ui_max = 1.0;\n',
                     '\tui_step = 1.0;\n',
                     f'> = {rcas_luma_only};\n'
+                ])
+                continue
+
+            # patch Mura strength multiplier
+            if "uniform float MuraStrength" in stripped:
+                while i < len(lines) and ">" not in lines[i]:
+                    i += 1
+                i += 1
+                out.extend([
+                    'uniform float MuraStrength < __UNIFORM_SLIDER_FLOAT1\n',
+                    '\tui_min = 0.5; ui_max = 1.5;\n',
+                    '\tui_label = "Mura Strength";\n',
+                    '\tui_tooltip = "Multiplies the brightness-adapted mura strength.";\n',
+                    f'> = {mura_strength};\n'
                 ])
                 continue
 
@@ -1106,7 +1136,7 @@ class Plugin:
             f"LGG Lift/Gamma=({lgg_lift_value},{lgg_gamma_value})"
             f"CAS={cas_enabled}, Sharpness={sharpness}, "
             f"Pixelate={pixelate_enabled}({pixelate_block_size}), "
-            f"MuraResponse={mura_response}, "
+            f"MuraResponse={mura_response}, MuraStrength={mura_strength}, "
             f"LumaOnly={rcas_luma_only}"
         )
 

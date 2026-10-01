@@ -1,7 +1,7 @@
 import { IconType } from "react-icons";
 import { FaTabletAlt, FaFirstdraft, FaFlipboard, FaBarcode, FaCuttlefish, FaBraille, FaThLarge } from "react-icons/fa";
 
-export type EffectKey = 'mura' | 'monitor' | 'brightness' | 'grain' | 'lgg' | 'aspectfix' | 'cas' | 'cas_slider' | 'pixelate' | 'pixelate_slider' | 'muraresponse' | 'lumaonly' | 'loading';
+export type EffectKey = 'mura' | 'monitor' | 'brightness' | 'grain' | 'lgg' | 'aspectfix' | 'cas' | 'cas_slider' | 'pixelate' | 'pixelate_slider' | 'muraresponse' | 'murastrength' | 'lumaonly' | 'loading';
 
 export interface EffectMeta {
   title: string;
@@ -33,6 +33,11 @@ export const Desc: Record<EffectKey, EffectMeta> = {
   muraresponse: {
     title: "Mura Response",
     desc: "How the correction follows the picture. A panel's mura tracks how hard each pixel is driven, so at 1 the correction scales with the pixel's own level — which keeps it out of the shadows, where a flat offset was a huge relative change and showed up as coloured noise on dark greys and blues. At 0 it goes back to a flat offset. Real panels sit somewhere between, so trust your eyes over the default.",
+    icon: FaBarcode,
+  },
+  murastrength: {
+    title: "Mura Strength",
+    desc: "Scales the mura correction on top of the value Brightness Adaptation picks for the current brightness, so it keeps adapting. 1 is the tuned strength; lower if mura looks overcorrected, higher if it still shows.",
     icon: FaBarcode,
   },
   lumaonly: {
